@@ -64,13 +64,11 @@ class AthomeScraper(BaseScraper):
             headless: Whether to run browser in headless mode
             timeout: Request timeout in seconds
         """
-        super().__init__(headless=headless, timeout=timeout)
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
+        super().__init__(site_name='アットホーム')
+        self.headless = headless
+        self.timeout = timeout
 
-    def scrape(self, conditions: Dict[str, Any], mode: str = 'rental', page: int = 1) -> List[Dict[str, Any]]:
+    def scrape(self, conditions: Dict[str, Any], mode: str = None, page: int = 1) -> List[Dict[str, Any]]:
         """
         Scrape AtHome listings for given conditions.
 
@@ -89,27 +87,39 @@ class AthomeScraper(BaseScraper):
         Returns:
             List of property dictionaries
         """
+        if mode is None:
+            mode = conditions.get('mode', 'rental')
         if mode not in ['rental', 'purchase']:
             logger.error(f"Invalid mode: {mode}. Must be 'rental' or 'purchase'")
             return []
 
-        url = self._build_search_url(conditions, mode, page)
-        logger.info(f"Scraping {mode} listings from: {url}")
+        max_pages = conditions.get('max_pages', 1)
+        all_properties = []
 
-        try:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
-            response.encoding = 'utf-8'
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch URL {url}: {e}")
-            return []
+        for pg in range(1, max_pages + 1):
+            url = self._build_search_url(conditions, mode, pg)
+            logger.info(f"Scraping {mode} listings page {pg} from: {url}")
 
-        soup = BeautifulSoup(response.content, 'html.parser')
+            try:
+                response = self.session.get(url, timeout=self.timeout)
+                response.raise_for_status()
+                response.encoding = 'utf-8'
+            except requests.RequestException as e:
+                logger.error(f"Failed to fetch URL {url}: {e}")
+                continue
 
-        if mode == 'rental':
-            return self._parse_rental_page(soup, conditions)
-        else:
-            return self._parse_purchase_page(soup, conditions)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            if mode == 'rental':
+                all_properties.extend(self._parse_rental_page(soup, conditions))
+            else:
+                all_properties.extend(self._parse_purchase_page(soup, conditions))
+
+            if pg < max_pages:
+                import time
+                time.sleep(1)
+
+        return all_properties
 
     def _build_search_url(self, conditions: Dict[str, Any], mode: str, page: int = 1) -> str:
         """
@@ -542,4 +552,3 @@ class AthomeScraper(BaseScraper):
         """Close the session."""
         if self.session:
             self.session.close()
-        super().close()
