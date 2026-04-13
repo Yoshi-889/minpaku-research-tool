@@ -61,11 +61,9 @@ class LocalScraper(BaseScraper):
             raise ValueError(f"Unknown company: {company_key}")
 
         company_info = LOCAL_COMPANIES[company_key]
-        super().__init__(
-            name=company_info['name'],
-            base_url=company_info['url'],
-            area=company_info['area']
-        )
+        super().__init__(site_name=company_info['name'])
+        self.base_url = company_info['url']
+        self.area = company_info['area']
         self.company_key = company_key
         self.company_info = company_info
 
