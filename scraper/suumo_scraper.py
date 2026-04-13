@@ -8,22 +8,42 @@ from .base_scraper import BaseScraper
 class SuumoScraper(BaseScraper):
     """Scraper for SUUMO rental property listings."""
 
-    # Area codes for SUUMO
-    PREFECTURE_CODES = {
-        'çæ¬ç': {'ar': '090', 'ta': '43'},
-        'ç¦å²¡ç': {'ar': '090', 'ta': '40'},
-        'å¤§åç': {'ar': '090', 'ta': '44'},
+    # SUUMO area region codes
+    REGION_CODES = {
+        '010': ['北海道'],
+        '020': ['青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県'],
+        '030': ['茨城県', '栃木県', '群馬県'],
+        '040': ['埼玉県', '千葉県', '東京都', '神奈巜県'],
+        '050': ['新潟県', '富山県', '石巜県', '福井県', '山梨県', '長野県'],
+        '060': ['岐阜県', '静岡県', '愛知県', '三重県'],
+        '070': ['滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県'],
+        '080': ['鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県'],
+        '090': ['福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'],
     }
 
-    # City codes for SUUMO (sc parameter)
-    CITY_CODES = {
-        'é¿èå¸': '43214',
-        'çæ¬å¸ä¸­å¤®åº': '43101',
-        'çæ¬å¸æ±åº': '43102',
-        'çæ¬å¸è¥¿åº': '43103',
-        'çæ¬å¸ååº': '43104',
-        'çæ¬å¸ååº': '43105',
+    # Prefecture name -> JIS code (ta parameter)
+    PREFECTURE_CODES = {
+        '北海道': '01', '青森県': '02', '岩手県': '03', '宮城県': '04',
+        '秋田県': '05', '山形県': '06', '福島県': '07', '茨城県': '08',
+        '栃木県': '09', '群馬県': '10', '埼玉県': '11', '千葉県': '12',
+        '東京都': '13', '神奈巜県': '14', '新潟県': '15', '富山県': '16',
+        '石巜県': '17', '福井県': '18', '山梨県': '19', '長野県': '20',
+        '岐阜県': '21', '静岡県': '22', '愛知県': '23', '三重県': '24',
+        '滋賀県': '25', '京都府': '26', '大阪府': '27', '兵庫県': '28',
+        '奈良県': '29', '和歌山県': '30', '鳥取県': '31', '島根県': '32',
+        '岡山県': '33', '広島県': '34', '山口県': '35', '徳島県': '36',
+        '香巜県': '37', '愛媛県': '38', '高知県': '39', '福岡県': '40',
+        '佐賀県': '41', '長崎県': '42', '熊本県': '43', '大分県': '44',
+        '宮崎県': '45', '鹿児島県': '46', '沖縄県': '47',
     }
+
+    @classmethod
+    def _get_region(cls, prefecture: str) -> str:
+        """Get SUUMO region code from prefecture name."""
+        for region, prefs in cls.REGION_CODES.items():
+            if prefecture in prefs:
+                return region
+        return '040'  # default: Kanto
 
     def __init__(self):
         super().__init__('SUUMO')
@@ -31,17 +51,16 @@ class SuumoScraper(BaseScraper):
 
     def _build_search_url(self, conditions: Dict, page: int = 1) -> str:
         """Build SUUMO search URL from conditions."""
-        prefecture = conditions.get('prefecture', 'çæ¬ç')
-        city = conditions.get('city', 'é¿èå¸')
+        prefecture = conditions.get('prefecture', '東京都')
+        city = conditions.get('city', '')
 
-        pref_code = self.PREFECTURE_CODES.get(prefecture, self.PREFECTURE_CODES['çæ¬ç'])
-        city_code = self.CITY_CODES.get(city, self.CITY_CODES['é¿èå¸'])
+        ta_code = self.PREFECTURE_CODES.get(prefecture, '13')
+        ar_code = self._get_region(prefecture)
 
         params = {
-            'ar': pref_code['ar'],
+            'ar': ar_code,
             'bs': '040',  # rental
-            'ta': pref_code['ta'],
-            'sc': city_code,
+            'ta': ta_code,
             'cb': conditions.get('rent_min', '0.0'),
             'ct': conditions.get('rent_max', '9999999'),
             'et': conditions.get('walk_max', '9999999'),
@@ -54,6 +73,10 @@ class SuumoScraper(BaseScraper):
             'shkr4': '03',
             'fw2': '',
         }
+
+        # Add city keyword search if specified
+        if city and city.strip():
+            params['fw2'] = city.strip()
 
         if page > 1:
             params['pn'] = str(page)
@@ -94,7 +117,7 @@ class SuumoScraper(BaseScraper):
             pagination = soup.select('.pagination-parts a')
             has_next = False
             for link in pagination:
-                if link.get_text(strip=True) == 'æ¬¡ã¸':
+                if link.get_text(strip=True) == '次へ':
                     has_next = True
                     break
 
@@ -135,7 +158,7 @@ class SuumoScraper(BaseScraper):
             divs = col3.select('div')
             for div in divs:
                 text = div.get_text(strip=True)
-                if 'ç¯' in text or 'æ°ç¯' in text:
+                if '築' in text or '新築' in text:
                     age_text = text
                     break
 
