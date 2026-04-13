@@ -68,7 +68,7 @@ st.markdown("""
 
 # ========================================
 # Constants
-# ========================================
+# =======================================
 APP_PASSWORD = "jh87*(U)(UOJHu7y98u0iOP"
 RYOKAN_YOTO_CHIIKI = ['商業地域', '近隣商業地域', '準工業地域', '準住居地域']
 
@@ -94,7 +94,7 @@ def check_password():
         return True
 
     def password_entered():
-        if st.session_state["password"] == APP_PASSWORD:
+       ` if st.session_state["password"] == APP_PASSWORD:
             st.session_state["authenticated"] = True
             del st.session_state["password"]
         else:
@@ -130,7 +130,7 @@ with st.sidebar:
         '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
         '岐阜県', '静岡県', '愛知県', '三重県',
         '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
-        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '鳥取県', '島根県', '岡山県', '布島県', '山口県',
         '徳島県', '香川県', '愛媛県', '高知県',
         '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
     ]
@@ -161,6 +161,14 @@ with st.sidebar:
         area_min = st.number_input("面積下限 (㎡)", min_value=0, value=0, step=5)
     with col4:
         area_max = st.number_input("面積上限 (㎡)", min_value=0, value=200, step=5)
+
+    col5, col6 = st.columns(2)
+    with col5:
+        build_year_min = st.number_input("建築年（以降）", min_value=1900, max_value=2030, value=1900, step=1,
+                                          help="この年以降に建てられた物件のみ表示")
+    with col6:
+        build_year_max = st.number_input("建築年（以前）", min_value=1900, max_value=2030, value=2030, step=1,
+                                          help="この年以前に建てられた物件のみ表示")
 
     max_pages = st.slider("最大ページ数（サイトごと）", 1, 10, 3)
 
@@ -227,7 +235,7 @@ with st.sidebar:
     daily_rate = st.number_input("想定宿泊単価 (円/泊)", min_value=1000, value=8000, step=500)
     occupancy_rate = st.slider("想定稼働率 (%)", 10, 90, 45) / 100
     setup_cost = st.number_input("初期セットアップ費用 (円)", min_value=0, value=500000, step=50000)
-    monthly_utilities = st.number_input("月額先熱費 (円)", min_value=0, value=15000, step=1000)
+    monthly_utilities = st.number_input("月額光熱費 (円)", min_value=0, value=15000, step=1000)
     management_rate = st.slider("管理費率 (%)", 0, 50, 20) / 100
     is_365_days = st.radio("営業形態", ['旅館業法（365日）', '民泊新法（180日）']) == '旅館業法（365日）'
 
@@ -281,30 +289,35 @@ def apply_exclusion_filter(df, conditions):
 st.title("🏠 民泊物件リサーチツール")
 st.caption("不動産物件のスクレイピング＆民泊適性分析 | 個人利用PoC版")
 
-# Main tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🏠 購入検索",
-    "🏢 賃貸検索",
+# Main tabs - 3 tabs structure
+tab1, tab2, tab3 = st.tabs([
+    "🔍 物件検索",
     "📊 分析ダッシュボード",
-    "🏛️ 個別物件評価",
     "📋 データエクスポート"
 ])
 
 
 # ========================================
-# Tab 1: Purchase Search
+# Tab 1: Unified Property Search
 # ========================================
 with tab1:
-    st.header("🏠 購入物件検索")
-    st.info(
-        "購入物件の検索条件をサイドバーで設定し、下のボタンを押して検索を実行してください。"
-        "検索はリアルタイムで各サイトにアクセスするため、数分かかる場合があります。"
-    )
+    if search_mode == "購入":
+        st.header("🏠 購入物件検索")
+        st.info(
+            "購入物件の検索条件をサイドバーで設定し、下のボタンを押して検索を実行してください。"
+            "検索はリアルタイムで各サイトにアクセスするため、数分かかる場合があります。"
+        )
+    else:
+        st.header("🏢 賃貸物件検索")
+        st.info(
+            "賃貸物件の検索条件をサイドバーで設定し、下のボタンを押して検索を実行してください。"
+            "検索はリアルタイムで各サイトにアクセスするため、数分かかる場合があります。"
+        )
 
     # Search button
     col_btn1, col_btn2 = st.columns([1, 3])
     with col_btn1:
-        purchase_search_clicked = st.button("🔍 検索実行", type="primary", use_container_width=True, key="purchase_search")
+        search_clicked = st.button("🔍 検索実行", type="primary", use_container_width=True, key="unified_search")
     with col_btn2:
         if st.session_state.search_results is not None:
             st.success(
@@ -312,23 +325,43 @@ with tab1:
                 f"(重複排除済み)"
             )
 
-    if purchase_search_clicked:
+    if search_clicked:
         cities = [c.strip() for c in city.split(',') if c.strip()] or ['']
-        conditions = {
-            'prefecture': prefecture,
-            'city': cities[0],
-            'cities': cities,
-            'price_min': price_min if price_min > 0 else None,
-            'price_max': price_max if price_max > 0 else None,
-            'area_min': area_min if area_min > 0 else None,
-            'area_max': area_max if area_max > 0 else None,
-            'max_pages': max_pages,
-            'mode': 'purchase',
-            'exclude_zoning': exclude_zoning,
-            'exclude_city_planning': exclude_city_planning,
-            'exclude_land_category': exclude_land_category,
-            'minpaku_365_eligible': minpaku_365_eligible,
-        }
+
+        if search_mode == "購入":
+            conditions = {
+                'prefecture': prefecture,
+                'city': cities[0],
+                'cities': cities,
+                'price_min': price_min if price_min > 0 else None,
+                'price_max': price_max if price_max > 0 else None,
+                'area_min': area_min if area_min > 0 else None,
+                'area_max': area_max if area_max > 0 else None,
+                'max_pages': max_pages,
+                'mode': 'purchase',
+                'exclude_zoning': exclude_zoning,
+                'exclude_city_planning': exclude_city_planning,
+                'exclude_land_category': exclude_land_category,
+                'minpaku_365_eligible': minpaku_365_eligible,
+                'build_year_min': build_year_min if build_year_min > 1900 else None,
+                'build_year_max': build_year_max if build_year_max < 2030 else None,
+            }
+        else:
+            conditions = {
+                'prefecture': prefecture,
+                'city': cities[0],
+                'cities': cities,
+                'rent_min': rent_min if rent_min > 0 else None,
+                'rent_max': rent_max if rent_max > 0 else None,
+                'area_min': area_min if area_min > 0 else None,
+                'area_max': area_max if area_max > 0 else None,
+                'max_pages': max_pages,
+                'mode': 'rental',
+                'exclude_zoning': exclude_zoning,
+                'exclude_city_planning': exclude_city_planning,
+                'exclude_land_category': exclude_land_category,
+                'minpaku_365_eligible': minpaku_365_eligible,
+            }
 
         all_results = {}
         total_found = 0
@@ -399,7 +432,7 @@ with tab1:
             except Exception as e:
                 status_text.text(f"❌ {company['name']}: エラー - {str(e)[:100]}")
 
-        progress_bar.progress(1.0, text="データ統合・重複排除中...")
+        progress_bar.progress(1.0, text="データ統合・重複排除仭...")
 
         # Merge and dedup
         if all_results:
@@ -410,14 +443,25 @@ with tab1:
                 merged = filtered_df.to_dict('records')
             st.session_state.search_results = merged
 
-            # Calculate purchase metrics
-            analyzed_df = calculate_purchase_metrics(
-                merged,
-                setup_cost=setup_cost,
-                monthly_utilities=monthly_utilities,
-                management_rate=management_rate,
-                is_365_days=is_365_days,
-            )
+            # Calculate metrics based on search mode
+            if search_mode == "購入":
+                analyzed_df = calculate_purchase_metrics(
+                    merged,
+                    setup_cost=setup_cost,
+                    monthly_utilities=monthly_utilities,
+                    management_rate=management_rate,
+                    is_365_days=is_365_days,
+                )
+            else:
+                analyzed_df = calculate_minpaku_metrics(
+                    merged,
+                    daily_rate=daily_rate,
+                    occupancy_rate=occupancy_rate,
+                    setup_cost=setup_cost,
+                    monthly_utilities=monthly_utilities,
+                    management_rate=management_rate,
+                    is_365_days=is_365_days,
+                )
             st.session_state.analyzed_df = analyzed_df
 
             progress_bar.progress(1.0, text="完了！")
@@ -431,54 +475,163 @@ with tab1:
 
     # Display results
     if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
-        df = st.session_state.analyzed_df
+        df = st.session_state.analyzed_df.copy()
+
+        # Apply building year filter (post-analysis since building_year is computed)
+        if 'building_year' in df.columns:
+            if build_year_min > 1900:
+                df = df[(df['building_year'].isna()) | (df['building_year'] >= build_year_min)]
+            if build_year_max < 2030:
+                df = df[(df['building_year'].isna()) | (df['building_year'] <= build_year_max)]
 
         st.subheader(f"検索結果: {len(df)} 件")
 
-        # Sort options
-        sort_col = st.selectbox(
-            "並び替え",
-            ['price', 'area', 'monthly_income', 'capitalization_rate'],
-            format_func=lambda x: {
-                'price': '価格（安い順）',
-                'area': '面積（広い順）',
-                'monthly_income': '月間収入（高い順）',
-                'capitalization_rate': '表面利回り（高い順）',
-            }.get(x, x),
-            key="purchase_sort"
-        )
+        # Sort options based on search mode
+        if search_mode == "購入":
+            sort_col = st.selectbox(
+                "並び替え",
+                ['price', 'area', 'monthly_income', 'capitalization_rate', 'minpaku_score'],
+                format_func=lambda x: {
+                    'price': '価格（安い順）',
+                    'area': '面積（布い順）',
+                    'monthly_income': '月間収入（高い順）',
+                    'capitalization_rate': '表面利回り（高い順）',
+                    'minpaku_score': '民泊スコア（高い順）',
+                }.get(x, x),
+                key="purchase_sort"
+            )
+            ascending = sort_col == 'price'
+        else:
+            sort_col = st.selectbox(
+                "並び替え",
+                ['minpaku_score', 'rent', 'area', 'roi_percent', 'net_monthly_profit'],
+                format_func=lambda x: {
+                    'minpaku_score': '民泊スコア（高い順）',
+                    'rent': '賃料（安い順）',
+                    'area': '面積（広い順）',
+                    'roi_percent': 'ROI（高い順）',
+                    'net_monthly_profit': '月間利益（高い順）',
+                }.get(x, x),
+                key="rental_sort"
+            )
+            ascending = sort_col == 'rent'
 
-        ascending = sort_col == 'price'
         display_df = df.sort_values(sort_col, ascending=ascending, na_position='last') if sort_col in df.columns else df
 
-        # Display columns
-        display_cols = [
-            'site', 'building_name', 'address',
-            'price', 'layout', 'area', 'age',
-            'published_date', 'nearest_school_distance',
-            'city_planning', 'zoning', 'land_category',
-            'monthly_income', 'capitalization_rate', 'transport', 'url',
-        ]
-        available_cols = [c for c in display_cols if c in display_df.columns]
+        # Display columns based on search mode
+        if search_mode == "購入":
+            display_cols = [
+                'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
+                'price', 'layout', 'area', 'age', 'building_year',
+                'estimated_daily_rate', 'monthly_income', 'capitalization_rate',
+                'published_date', 'nearest_school_distance',
+                'city_planning', 'zoning', 'land_category',
+                'transport', 'url',
+            ]
+            col_config = {
+                'minpaku_grade': st.column_config.TextColumn('グレード', width='small'),
+                'minpaku_score': st.column_config.ProgressColumn('民泊スコア', min_value=0, max_value=100),
+                'site': st.column_config.TextColumn('サイト', width='small'),
+                'building_name': st.column_config.TextColumn('物件名'),
+                'address': st.column_config.TextColumn('住所'),
+                'price': st.column_config.NumberColumn('価格(万円)', format="%.0f万円"),
+                'layout': st.column_config.TextColumn('間取り', width='small'),
+                'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
+                'age': st.column_config.NumberColumn('築年数', format="%d年"),
+                'building_year': st.column_config.NumberColumn('建築年', format="%d"),
+                'estimated_daily_rate': st.column_config.NumberColumn('想定単価(円/泊)', format="¥%,.0f"),
+                'monthly_income': st.column_config.NumberColumn('月間収入(円)', format="¥%,.0f"),
+                'capitalization_rate': st.column_config.NumberColumn('表面利回り', format="%.1f%%"),
+                'published_date': st.column_config.TextColumn('公開日'),
+                'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
+                'city_planning': st.column_config.TextColumn('都市計画', width='small'),
+                'zoning': st.column_config.TextColumn('用途地域', width='small'),
+                'land_category': st.column_config.TextColumn('地目', width='sm"
+            )
+            ascending = sort_col == 'price'
+        else:
+            sort_col = st.selectbox(
+                "並び替え",
+                ['minpaku_score', 'rent', 'area', 'roi_percent', 'net_monthly_profit'],
+                format_func=lambda x: {
+                    'minpaku_score': '民泊スコア（高い順）',
+                    'rent': '賃料（安い順）',
+                    'area': '面積（広い順）',
+                    'roi_percent': 'ROI（高い順）',
+                    'net_monthly_profit': '月間利益（高い順）',
+                }.get(x, x),
+                key="rental_sort"
+            )
+            ascending = sort_col == 'rent'
 
-        col_config = {
-            'site': st.column_config.TextColumn('サイト', width='small'),
-            'building_name': st.column_config.TextColumn('物件名'),
-            'address': st.column_config.TextColumn('住所'),
-            'price': st.column_config.NumberColumn('価格(万円)', format="%.0f万円"),
-            'layout': st.column_config.TextColumn('間取り', width='small'),
-            'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
-            'age': st.column_config.NumberColumn('築年数', format="%d年"),
-            'published_date': st.column_config.TextColumn('公開日'),
-            'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
-            'city_planning': st.column_config.TextColumn('都市計画', width='small'),
-            'zoning': st.column_config.TextColumn('用途地域', width='small'),
-            'land_category': st.column_config.TextColumn('地目', width='small'),
-            'monthly_income': st.column_config.NumberColumn('月間収入(円)', format="¥%,.0f"),
-            'capitalization_rate': st.column_config.NumberColumn('表面利回り', format="%.1f%%"),
-            'transport': st.column_config.TextColumn('交通'),
-            'url': st.column_config.LinkColumn('リンク', width='small'),
-        }
+        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last') if sort_col in df.columns else df
+
+        # Display columns based on search mode
+        if search_mode == "購入":
+            display_cols = [
+                'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
+                'price', 'layout', 'area', 'age', 'building_year',
+                'estimated_daily_rate', 'monthly_income', 'capitalization_rate',
+                'published_date', 'nearest_school_distance',
+                'city_planning', 'zoning', 'land_category',
+                'transport', 'url',
+            ]
+            col_config = {
+                'minpaku_grade': st.column_config.TextColumn('グレード', width='small'),
+                'minpaku_score': st.column_config.ProgressColumn('民泊スコア', min_value=0, max_value=100),
+                'site': st.column_config.TextColumn('サイト', width='small'),
+                'building_name': st.column_config.TextColumn('物件名'),
+                'address': st.column_config.TextColumn('住所'),
+                'price': st.column_config.NumberColumn('価格(万円)', format="%.0f万円"),
+                'layout': st.column_config.TextColumn('間取り', width='small'),
+                'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
+                'age': st.column_config.NumberColumn('築年数', format="%d年"),
+                'building_year': st.column_config.NumberColumn('建築年', format="%d"),
+                'estimated_daily_rate': st.column_config.NumberColumn('想定単価(円/泊)', format="¥%,.0f"),
+                'monthly_income': st.column_config.NumberColumn('月間収入(円)', format="¥%,.0f"),
+                'capitalization_rate': st.column_config.NumberColumn('表面利回り', format="%.1f%%"),
+                'published_date': st.column_config.TextColumn('公開日'),
+                'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
+                'city_planning': st.column_config.TextColumn('都市計画', width='small'),
+                'zoning': st.column_config.TextColumn('用途地域', width='small'),
+                'land_category': st.column_config.TextColumn('地目', width='small'),
+                'transport': st.column_config.TextColumn('交通'),
+                'url': st.column_config.LinkColumn('リンク', width='small'),
+            }
+        else:  # rental
+            display_cols = [
+                'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
+                'rent', 'management_fee', 'layout', 'area', 'age', 'building_year',
+                'published_date', 'nearest_school_distance',
+                'city_planning', 'zoning', 'land_category',
+                'net_monthly_profit', 'roi_percent', 'breakeven_months',
+                'transport', 'url',
+            ]
+            col_config = {
+                'minpaku_grade': st.column_config.TextColumn('評価', width='small'),
+                'minpaku_score': st.column_config.ProgressColumn('スコア', min_value=0, max_value=100),
+                'site': st.column_config.TextColumn('サイト', width='small'),
+                'building_name': st.column_config.TextColumn('物件名'),
+                'address': st.column_config.TextColumn('住所'),
+                'rent': st.column_config.NumberColumn('賃料(万円)', format="%.1f万円"),
+                'management_fee': st.column_config.NumberColumn('管理費(万円)', format="%.2f万円"),
+                'layout': st.column_config.TextColumn('間取り', width='small'),
+                'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
+                'age': st.column_config.NumberColumn('築年数', format="%d年"),
+                'building_year': st.column_config.NumberColumn('建築年', format="%d"),
+                'published_date': st.column_config.TextColumn('公開日'),
+                'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
+                'city_planning': st.column_config.TextColumn('都市計画', width='small'),
+                'zoning': st.column_config.TextColumn('用途地域', width='small'),
+                'land_category': st.column_config.TextColumn('地目', width='small'),
+                'net_monthly_profit': st.column_config.NumberColumn('月間利益(円)', format="¥%,.0f"),
+                'roi_percent': st.column_config.NumberColumn('ROI', format="%.1f%%"),
+                'breakeven_months': st.column_config.NumberColumn('回収期間(月)', format="%.1fヶ月"),
+                'transport': st.column_config.TextColumn('交通'),
+                'url': st.column_config.LinkColumn('リンク', width='small'),
+            }
+
+        available_cols = [c for c in display_cols if c in display_df.columns]
 
         st.dataframe(
             display_df[available_cols],
@@ -487,216 +640,93 @@ with tab1:
             height=500,
         )
 
+        # URL-based property evaluation section
+        st.divider()
+        st.subheader("🔷 URL指定による物件評価")
+        st.caption("特定の物件URLを入力して、民泊適性を自動h��価します")
+
+        eval_url = st.text_input(
+            "物件URL",
+            placeholder="例: https://suumo.jp/...",
+            help="SUUMO、HOMES、アットホームなどのURL"
+        )
+
+        if st.button("🔍 物件を取得して評価", key="eval_url_btn"):
+            if eval_url.strip():
+                st.info(f"物件URLを処理中: {eval_url}")
+                try:
+                    # Try to scrape the URL with appropriate scraper
+                    eval_result = None
+                    if 'suumo' in eval_url.lower():
+                        scraper = SuumoScraper()
+                        eval_result = scraper.scrape_single_property(eval_url)
+                    elif 'homes' in eval_url.lower():
+                        scraper = HomesScraper()
+                        eval_result = scraper.scrape_single_property(eval_url)
+                    elif 'athome' in eval_url.lower():
+                        scraper = AthomeScraper()
+                        eval_result = scraper.scrape_single_property(eval_url)
+
+                    if eval_result:
+                        # Evaluate the property
+                        result = evaluate_minpaku_property(
+                            building_year=eval_result.get('building_year'),
+                            yoto_chiiki=eval_result.get('zoning'),
+                            is_shigaika_chosei=eval_result.get('is_city_planning_area'),
+                            school_distance_m=eval_result.get('nearest_school_distance'),
+                            total_floor_area_m2=eval_result.get('area'),
+                            has_fire_equipment=eval_result.get('has_fire_equipment'),
+                            additional_notes=f"物件名: {eval_result.get('building_name', '不明')}",
+                        )
+
+                        # Display result
+                        st.divider()
+
+                        grade_colors = {'S': '🥇', 'A': '🟢', 'B': '🔵', 'C': '🟠', 'D': '🔴'}
+                        grade_icon = grade_colors.get(result['grade'], '⚪')
+
+                        col_grade, col_score, col_summary = st.columns([1, 1, 3])
+                        with col_grade:
+                            st.metric("総合評価", f"{grade_icon} {result['grade']}")
+                        with col_score:
+                            st.metric("スコア", f"{result['score']} / 100")
+                        with col_summary:
+                            st.info(result['summary'])
+
+                        col_left, col_right = st.columns(2)
+
+                        with col_left:
+                            if result['merits']:
+                                st.subheader("✅ メリット")
+                                for m in result['merits']:
+                                    st.success(m)
+
+                        with col_right:
+                            if result['risks']:
+                                st.subheader("⚠️ 懵念点・リスク")
+                                for r in result['risks']:
+                                    st.warning(r)
+
+                        if result['advice']:
+                            st.subheader("💡 専門家からのアドバイス")
+                            for a in result['advice']:
+                                st.info(a)
+
+                        # Full text report
+                        with st.expander("📄 テキストレポート（コピー用）"):
+                            st.code(format_evaluation_report(result), language=None)
+                    else:
+                        st.error("物件情報を取得できませんでした。URLを確認してください。")
+                except Exception as e:
+                    st.error(f"エラーが発生しました: {str(e)}")
+            else:
+                st.warning("URLを入力してください")
+
 
 # ========================================
-# Tab 2: Rental Search
+# Tab 2: Analysis Dashboard
 # ========================================
 with tab2:
-    st.header("🏢 賃貸物件検索")
-    st.info(
-        "賃貸物件の検索条件をサイドバーで設定し、下のボタンを押して検索を実行してください。"
-        "検索はリアルタイムで各サイトにアクセスするため、数分かかる場合があります。"
-    )
-
-    # Search button
-    col_btn1, col_btn2 = st.columns([1, 3])
-    with col_btn1:
-        rental_search_clicked = st.button("🔍 検索実行", type="primary", use_container_width=True, key="rental_search")
-    with col_btn2:
-        if st.session_state.search_results is not None:
-            st.success(
-                f"前回の検索結果: {len(st.session_state.search_results)} 件 "
-                f"(重複排除済み)"
-            )
-
-    if rental_search_clicked:
-        cities = [c.strip() for c in city.split(',') if c.strip()] or ['']
-        conditions = {
-            'prefecture': prefecture,
-            'city': cities[0],
-            'cities': cities,
-            'rent_min': rent_min if rent_min > 0 else None,
-            'rent_max': rent_max if rent_max > 0 else None,
-            'area_min': area_min if area_min > 0 else None,
-            'area_max': area_max if area_max > 0 else None,
-            'max_pages': max_pages,
-            'mode': 'rental',
-            'exclude_zoning': exclude_zoning,
-            'exclude_city_planning': exclude_city_planning,
-            'exclude_land_category': exclude_land_category,
-            'minpaku_365_eligible': minpaku_365_eligible,
-        }
-
-        all_results = {}
-        total_found = 0
-
-        progress_bar = st.progress(0, text="検索準備中...")
-        status_text = st.empty()
-
-        # Determine total steps
-        sites = []
-        if use_suumo: sites.append(('SUUMO', SuumoScraper))
-        if use_homes: sites.append(("LIFULL HOME'S", HomesScraper))
-        if use_athome: sites.append(('アットホーム', AthomeScraper))
-        local_sites = [k for k, v in selected_locals.items() if v]
-        total_steps = len(sites) + len(local_sites)
-        step = 0
-
-        # Scrape major sites
-        for site_name, ScraperClass in sites:
-            step += 1
-            progress_bar.progress(step / max(total_steps, 1), text=f"{site_name} を検索中...")
-            status_text.text(f"🔄 {site_name} からデータを取得しています...")
-
-            try:
-                scraper = ScraperClass()
-                site_results = []
-                for _city in cities:
-                    city_conditions = {**conditions, 'city': _city}
-                    try:
-                        r = scraper.scrape(city_conditions)
-                        if r:
-                            site_results.extend(r)
-                    except Exception as ce:
-                        status_text.text(f"⚠️ {site_name}/{_city}: {str(ce)[:80]}")
-                if site_results:
-                    all_results[site_name] = site_results
-                    total_found += len(site_results)
-                    status_text.text(f"✅ {site_name}: {len(site_results)} 件取得")
-                else:
-                    status_text.text(f"⚠️ {site_name}: 物件が見つかりませんでした")
-            except Exception as e:
-                status_text.text(f"❌ {site_name}: エラー - {str(e)[:100]}")
-
-        # Scrape local companies
-        for company_key in local_sites:
-            step += 1
-            company = LOCAL_COMPANIES[company_key]
-            progress_bar.progress(step / max(total_steps, 1),
-                                  text=f"{company['name']} を検索中...")
-            status_text.text(f"🔄 {company['name']} からデータを取得しています...")
-
-            try:
-                scraper = LocalScraper(company_key)
-                site_results = []
-                for _city in cities:
-                    city_conditions = {**conditions, 'city': _city}
-                    try:
-                        r = scraper.scrape(city_conditions)
-                        if r:
-                            site_results.extend(r)
-                    except Exception as ce:
-                        status_text.text(f"⚠️ {company['name']}/{_city}: {str(ce)[:80]}")
-                if site_results:
-                    all_results[company['name']] = site_results
-                    total_found += len(site_results)
-                    status_text.text(f"✅ {company['name']}: {len(site_results)} 件取得")
-                else:
-                    status_text.text(f"⚠️ {company['name']}: 物件が見つかりませんでした")
-            except Exception as e:
-                status_text.text(f"❌ {company['name']}: エラー - {str(e)[:100]}")
-
-        progress_bar.progress(1.0, text="データ統合・重複排除中...")
-
-        # Merge and dedup
-        if all_results:
-            merged = merge_properties(all_results)
-            # Apply exclusion filter
-            if merged:
-                filtered_df = apply_exclusion_filter(pd.DataFrame(merged), conditions)
-                merged = filtered_df.to_dict('records')
-            st.session_state.search_results = merged
-
-            # Calculate minpaku metrics for rental
-            analyzed_df = calculate_minpaku_metrics(
-                merged,
-                daily_rate=daily_rate,
-                occupancy_rate=occupancy_rate,
-                setup_cost=setup_cost,
-                monthly_utilities=monthly_utilities,
-                management_rate=management_rate,
-                is_365_days=is_365_days,
-            )
-            st.session_state.analyzed_df = analyzed_df
-
-            progress_bar.progress(1.0, text="完了！")
-            st.success(
-                f"検索完了！ {total_found} 件取得 → 重複排除後 {len(merged)} 件 "
-                f"(民泊分析済み)"
-            )
-        else:
-            progress_bar.progress(1.0, text="完了")
-            st.warning("物件が見つかりませんでした。検索条件を変更してみてください。")
-
-    # Display results
-    if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
-        df = st.session_state.analyzed_df
-
-        st.subheader(f"検索結果: {len(df)} 件")
-
-        # Sort options
-        sort_col = st.selectbox(
-            "並び替え",
-            ['minpaku_score', 'rent', 'area', 'roi_percent', 'net_monthly_profit'],
-            format_func=lambda x: {
-                'minpaku_score': '民泊スコア（高い順）',
-                'rent': '賃料（安い順）',
-                'area': '面積（広い順）',
-                'roi_percent': 'ROI（高い順）',
-                'net_monthly_profit': '月間利益（高い順）',
-            }.get(x, x),
-            key="rental_sort"
-        )
-
-        ascending = sort_col == 'rent'
-        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last') if sort_col in df.columns else df
-
-        # Display columns
-        display_cols = [
-            'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
-            'rent', 'management_fee', 'layout', 'area', 'age',
-            'published_date', 'nearest_school_distance',
-            'city_planning', 'zoning', 'land_category',
-            'net_monthly_profit', 'roi_percent', 'breakeven_months',
-            'transport', 'url',
-        ]
-        available_cols = [c for c in display_cols if c in display_df.columns]
-
-        col_config = {
-            'minpaku_grade': st.column_config.TextColumn('評価', width='small'),
-            'minpaku_score': st.column_config.ProgressColumn('スコア', min_value=0, max_value=100),
-            'site': st.column_config.TextColumn('サイト', width='small'),
-            'building_name': st.column_config.TextColumn('物件名'),
-            'address': st.column_config.TextColumn('住所'),
-            'rent': st.column_config.NumberColumn('賃料(万円)', format="%.1f万円"),
-            'management_fee': st.column_config.NumberColumn('管理費(万円)', format="%.2f万円"),
-            'layout': st.column_config.TextColumn('間取り', width='small'),
-            'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
-            'age': st.column_config.NumberColumn('築年数', format="%d年"),
-            'published_date': st.column_config.TextColumn('公開日'),
-            'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
-            'city_planning': st.column_config.TextColumn('都市計画', width='small'),
-            'zoning': st.column_config.TextColumn('用途地域', width='small'),
-            'land_category': st.column_config.TextColumn('地目', width='small'),
-            'net_monthly_profit': st.column_config.NumberColumn('月間利益(円)', format="¥%,.0f"),
-            'roi_percent': st.column_config.NumberColumn('ROI', format="%.1f%%"),
-            'breakeven_months': st.column_config.NumberColumn('回収期間(月)', format="%.1fヶ月"),
-            'transport': st.column_config.TextColumn('交通'),
-            'url': st.column_config.LinkColumn('リンク', width='small'),
-        }
-
-        st.dataframe(
-            display_df[available_cols],
-            column_config=col_config,
-            use_container_width=True,
-            height=500,
-        )
-
-
-# ========================================
-# Tab 3: Analysis Dashboard
-# ========================================
-with tab3:
     st.header("📊 分析ダッシュボード")
 
     if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
@@ -774,9 +804,11 @@ with tab3:
             elif 'price' in df.columns and 'area' in df.columns:
                 fig = px.scatter(df.dropna(subset=['price', 'area']),
                                  x='area', y='price',
+                                 color='minpaku_grade' if 'minpaku_grade' in df.columns else None,
                                  hover_data=['building_name', 'layout'],
                                  labels={'area': '面積 (㎡)', 'price': '価格 (万円)'},
-                                 color_discrete_sequence=['#2196F3'])
+                                 color_discrete_map={'S': '#FFD700', 'A': '#4CAF50',
+                                                     'B': '#2196F3', 'C': '#FF9800', 'D': '#F44336'})
                 fig.update_layout(height=350)
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -812,150 +844,13 @@ with tab3:
             st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("まず「購入検索」または「賃貸検索」タブで検索を実行してください。")
+        st.info("まず「物件検索」タブで検索を実行してください。")
 
 
 # ========================================
-# Tab 4: Individual Property Evaluation
+# Tab 3: Data Export
 # ========================================
-with tab4:
-    st.header("🏛️ 個別物件の民泊適性評価")
-    st.caption(
-        "物件の詳細情報を入力して、民泊（旅館業法/民泊新法）での営業適性を評価します。"
-        "耐震基準・用途地域・周辺施設・建物規模・消防設備の5つの観点で総合評価を行います。"
-    )
-
-    with st.form("eval_form"):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            eval_year_input = st.text_input(
-                "築年月日",
-                placeholder="例: 1985, 昭和60年, 平成5年",
-                help="1981年（昭和56年）6月以降なら新耐震基準"
-            )
-            eval_yoto = st.selectbox(
-                "用途地域",
-                ['不明'] + GOOD_YOTO_CHIIKI + BAD_YOTO_CHIIKI + ['工業地域', '工業専用地域'],
-            )
-            eval_shigaika = st.radio(
-                "市街化調整区域か？",
-                ['不明', 'いいえ（市街化区域等）', 'はい（調整区域）']
-            )
-
-        with col2:
-            eval_school_dist = st.number_input(
-                "最寄り学校・保育園・公園からの距離 (m)",
-                min_value=0, value=0, step=10,
-                help="0の場合は「不明」として扱います"
-            )
-            eval_area = st.number_input(
-                "延床面積 (㎡)",
-                min_value=0.0, value=0.0, step=5.0,
-                help="0の場合は「不明」として扱います"
-            )
-            eval_fire = st.radio(
-                "消防設備の有無",
-                ['不明', 'あり', 'なし']
-            )
-
-        eval_notes = st.text_area("その他の特記事項", placeholder="例: 駅から徒歩5分、駐車場あり")
-
-        submitted = st.form_submit_button("📋 評価実行", type="primary")
-
-    if submitted:
-        # Parse building year
-        building_year = None
-        if eval_year_input:
-            year_str = eval_year_input.strip()
-            # Try direct number
-            if year_str.isdigit():
-                building_year = int(year_str)
-            else:
-                # 昭和
-                m = re.search(r'昭和\s*(\d+)', year_str)
-                if m:
-                    building_year = 1925 + int(m.group(1))
-                # 平成
-                m = re.search(r'平成\s*(\d+)', year_str)
-                if m:
-                    building_year = 1988 + int(m.group(1))
-                # 令和
-                m = re.search(r'令和\s*(\d+)', year_str)
-                if m:
-                    building_year = 2018 + int(m.group(1))
-                # Just year number
-                m = re.search(r'(\d{4})', year_str)
-                if m and not building_year:
-                    building_year = int(m.group(1))
-
-        yoto = eval_yoto if eval_yoto != '不明' else None
-        shigaika = None
-        if eval_shigaika == 'はい（調整区域）':
-            shigaika = True
-        elif eval_shigaika == 'いいえ（市街化区域等）':
-            shigaika = False
-
-        school_dist = eval_school_dist if eval_school_dist > 0 else None
-        floor_area = eval_area if eval_area > 0 else None
-        fire_equip = None
-        if eval_fire == 'あり':
-            fire_equip = True
-        elif eval_fire == 'なし':
-            fire_equip = False
-
-        result = evaluate_minpaku_property(
-            building_year=building_year,
-            yoto_chiiki=yoto,
-            is_shigaika_chosei=shigaika,
-            school_distance_m=school_dist,
-            total_floor_area_m2=floor_area,
-            has_fire_equipment=fire_equip,
-            additional_notes=eval_notes,
-        )
-
-        # Display result
-        st.divider()
-
-        grade_colors = {'S': '🥇', 'A': '🟢', 'B': '🔵', 'C': '🟠', 'D': '🔴'}
-        grade_icon = grade_colors.get(result['grade'], '⚪')
-
-        col_grade, col_score, col_summary = st.columns([1, 1, 3])
-        with col_grade:
-            st.metric("総合評価", f"{grade_icon} {result['grade']}")
-        with col_score:
-            st.metric("スコア", f"{result['score']} / 100")
-        with col_summary:
-            st.info(result['summary'])
-
-        col_left, col_right = st.columns(2)
-
-        with col_left:
-            if result['merits']:
-                st.subheader("✅ メリット")
-                for m in result['merits']:
-                    st.success(m)
-
-        with col_right:
-            if result['risks']:
-                st.subheader("⚠️ 懵念点・リスク")
-                for r in result['risks']:
-                    st.warning(r)
-
-        if result['advice']:
-            st.subheader("💡 専門家からのアドバイス")
-            for a in result['advice']:
-                st.info(a)
-
-        # Full text report
-        with st.expander("📄 テキストレポート（コピー用）"):
-            st.code(format_evaluation_report(result), language=None)
-
-
-# ========================================
-# Tab 5: Data Export
-# ========================================
-with tab5:
+with tab3:
     st.header("📋 データエクスポート")
 
     if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
@@ -965,11 +860,11 @@ with tab5:
         all_cols = list(df.columns)
         default_cols = [c for c in [
             'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
-            'rent', 'price', 'management_fee', 'layout', 'area', 'age', 'age_text',
+            'rent', 'price', 'management_fee', 'layout', 'area', 'age', 'building_year', 'age_text',
             'published_date', 'nearest_school_distance',
             'city_planning', 'zoning', 'land_category',
             'transport', 'net_monthly_profit', 'roi_percent', 'breakeven_months',
-            'capitalization_rate', 'url',
+            'capitalization_rate', 'monthly_income', 'url',
         ] if c in all_cols]
 
         export_cols = st.multiselect(
@@ -1018,7 +913,7 @@ with tab5:
             st.subheader("プレビュー")
             st.dataframe(export_df, use_container_width=True, height=400)
     else:
-        st.info("まず「購入検索」または「賃貸検索」タブで検索を実行してください。")
+        st.info("まず「物件検索」タブで検索を実行してください。")
 
 
 # ========================================
@@ -1030,9 +925,9 @@ with st.expander("📐 各数値の算出根拠", expanded=False):
     st.markdown("""
 ### 月間売上計算
 ```
-月間売上 = 宿泊単価 × 稼働率 × (365日 or 180日) ÷ 12ヶ月
+月間売上 = 宿泈単価 × 稼働率 × (365日 or 180日) ÷ 12ヶ月
 ```
-宿泊単価と稼働率から、1年間の売上を月単位で換算します。旅館業法（365日営業）または民泊新法（180日営業）の営業日数を使用します。
+宿泈単価と稼働率から、1年間の売上を月単位で換算します。旅館業法（365日営業）または民泊新法（180日営業）の営業日数を使用します。
 
 ---
 
@@ -1086,83 +981,5 @@ ROI (%) = 年間利益 ÷ (年間固定費 + 初期費用) × 100
 - **,賃料効以 (15%)**: 面積あたりの賃料が適切な範囲内で加点
 
 スコアは0～100の範囲で、以下の等級に対応します：
-- **S (90以上)**: 民泈運奶に非常に適した物件
-- **A (75以上)**: 民泈運奶歫適した物件
-- **B (60以上)**: 民泈運奶歫利用可能な物件
-- **C (45以上)**: 民泈運奶歫は工夫が必要な物件
-- **D (未満)**: 民沊不向きな物件
-
----
-
-### 個別物件評価（5つの評価軸）
-
-#### 1. 耐震基準
-- **S級**: 1981年６月以降の新耐震呺準対応
-- **A級**: 1970年～1981年６月（やや古いが通常利用可能）
-- **B級**: 1960年～1970年（耐震襺宋・補強検討が必要）
-- **C級**: 1960年以前（耐震詤強が強く推奨）
-- **D｜**: 不明（診斄が必須）
-
-#### 2. 用途地域
-用途地域は、槯魨業憳法による営皔に뀁珯します：
-- **適合地域**: 商皔地域、か卄隘商皔地域、く工皔地域、く住居地域
-- **要確認地域**: その他の地域（自治体の許認可が必要な場合あり）
-- **非適合地域**: 住宄地、自居地域、工皔専用地域
-
-#### 3. 市街化区域
-- 市街化区域: インフラが整備された利便性の高い地域（加点）
-- 市街化調整区域: 開発が制限された地域（減点）
-
-#### 4. 周辺施設
-- 最寄り学校･保育園㝥公園までの距離が短いほど加点
-- 特に学校までの距離500m以内で利便性が高い
-
-#### 5. 建物妇懃・消防設備
-- 建物規模: 30～150㎡程度が最適
-- 消防設備の有無: 大規模表件や旅館業斖業断場合、泅沈設戮の整備が法的要件
-
----
-
-### 購入物件用の利回り計算
-
-#### 表面利回り（Gross Yield）
-```
-表面利回り (%) = 年間売上 ÷ 物件価格 × 100
-```
-物件価格に対する年間売上の割合です。环純な利回りを示しますが、コストを考慮していません。
-
-#### 実質利回り（Net Yield）
-```
-実質利回り (%) = (年間売上 - 年間経費) ÷ (物件価格 + 初期費用) × 100
-```
-実際のコストを差し引いた真の利回りです。投資判断の際の参考指標として使用します。
-
----
-
-### データ出典
-
-本ツールで使用しているデータは以下のサイトから取得しています：
-��るデータは以下のサイトから取得しています：
-- SUUMO: https://suumo.jp/
-- LIFULL HOME'S: https://homes.co.jp/
-- アットホーム: https://www.athome.co.jp/
-
----
-
-### 免責事項
-
-このツールで表示される計算結果は、入力データに基づいた推定値です。
-実際の民泊営業には多くの追加要件（消防設備、建築基準、自治体条例など）が存在します。
-物件選定・投資判断の際には、必ず専門家への相談をお勧めします。
-""")
-
-
-# ========================================
-# Footer
-# ========================================
-st.divider()
-st.caption(
-    "⚠️ このツールは個人利用・学習目的に限定されます。"
-    "商用化や大規模利用を行う場合は、各サイトの公式APIへの移行を検討してください。"
-    f" | 最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-)
+- **S (90以上)**: 民泊運奶に非常に適した物件
+- **A (75以上)*
