@@ -22,10 +22,10 @@ LOCAL_COMPANIES = {
         'name': 'アパマンショップ光の森店',
         'url': 'https://www.apamanshop.com',
         'search_url': 'https://www.apamanshop.com/ensen/03610/area/',
-        'area': '犊本県全般',
-        'description': '全国チェーン（犊本エリア）',
+        'area': '熊本県全般',
+        'description': '全国チェーン（熊本エリア）',
     },
-    '大東建託リーシング犊本中央店': {
+    '大東建託リーシング熊本中央店': {
         'name': '大東建託リーシング',
         'url': 'https://www.eheya.net',
         'search_url': 'https://www.eheya.net/kumamoto/',
@@ -36,8 +36,8 @@ LOCAL_COMPANIES = {
         'name': '明和不動産',
         'url': 'https://www.meiwa-fudosan.co.jp',
         'search_url': 'https://www.meiwa-fudosan.co.jp/rent/',
-        'area': '犊本県全般',
-        'description': '犊本県を中心とした地域密着型不動産会社',
+        'area': '熊本県全般',
+        'description': '熊本県を中心とした地域密着型不動産会社',
     },
 }
 
@@ -132,7 +132,7 @@ class LocalScraper(BaseScraper):
 
             # Address
             address = ''
-            match = re.search(r'(犊本県[^\s\n]+)', text)
+            match = re.search(r'(熊本県[^\s\n]+)', text)
             if match:
                 address = match.group(1)
 
