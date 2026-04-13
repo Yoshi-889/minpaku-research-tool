@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime
 from urllib.parse import urljoin
-from base_scraper import BaseScraper
+from .base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ class SUUMOScraper(BaseScraper):
         '新潟県': '甲信越・北陸',
         '富山県': '甲信越・北陸',
         '石川県': '甲信越・北陸',
-        '福井県': '甲信越・北陸',
+        '福���県': '甲信越・北陸',
         '山梨県': '甲信越・北陸',
         '長野県': '甲信越・北陸',
         '岐阜県': '東海',
@@ -446,3 +446,7 @@ class SUUMOScraper(BaseScraper):
             property_dict['land_category'] = land_cat_match.group(1).strip()
 
         return property_dict
+
+
+# Alias for main.py compatibility
+SuumoScraper = SUUMOScraper
