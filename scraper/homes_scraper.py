@@ -70,7 +70,9 @@ class HomesScraper(BaseScraper):
 
     def __init__(self, headless: bool = True, timeout: int = 10):
         """Initialize the LIFULL HOME'S scraper."""
-        super().__init__(headless=headless, timeout=timeout)
+        super().__init__(site_name='LIFULL HOME\'S')
+        self.headless = headless
+        self.timeout = timeout
         self.site_name = "LIFULL HOME'S"
 
     def _get_prefecture_path(self, prefecture: str) -> str:
