@@ -51,7 +51,7 @@ if 'authenticated' not in st.session_state:
 if not st.session_state.authenticated:
     st.title("🏠 民泊物件リサーチツール")
     st.markdown("---")
-    st.subheader("🔏 ログイン")
+    st.subheader("🔐 ログイン")
     password_input = st.text_input("パスワードを入力してください", type="password")
     login_btn = st.button("ログイン", type="primary")
     if login_btn:
@@ -61,7 +61,6 @@ if not st.session_state.authenticated:
         else:
             st.error("パスワードが正しくありません。")
     st.stop()
-
 
 # ========================================
 # Custom CSS
@@ -104,8 +103,20 @@ with st.sidebar:
     st.title("🏠 検索設定")
 
     st.header("📍 エリア設定")
-    prefecture = st.selectbox("都道府県", ['熊本県', '福岡県', '大分県'], index=0)
-    city = st.text_input("市区町村", value='阿蘇市')
+
+    ALL_PREFECTURES = [
+        '北海道',
+        '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+        '岐阜県', '静岡県', '愛知県', '三重県',
+        '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '徳島県', '香川県', '愛媛県', '高知県',
+        '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+    ]
+    prefecture = st.selectbox("都道府県", ALL_PREFECTURES, index=ALL_PREFECTURES.index('東京都'))
+    city = st.text_input("市区町村（空欄で都道府県全体を検索）", value='')
 
     st.header("💰 条件フィルター")
     col1, col2 = st.columns(2)
@@ -208,7 +219,7 @@ with tab1:
         # Scrape major sites
         for site_name, ScraperClass in sites:
             step += 1
-            progress_bar.progress(step / max(total_steps, 1), text=f"{site_name} を検索仭...")
+            progress_bar.progress(step / max(total_steps, 1), text=f"{site_name} を検索中...")
             status_text.text(f"🔄 {site_name} からデータを取得しています...")
 
             try:
@@ -228,7 +239,7 @@ with tab1:
             step += 1
             company = LOCAL_COMPANIES[company_key]
             progress_bar.progress(step / max(total_steps, 1),
-                                  text=f"{company['name']} を検索仭...")
+                                  text=f"{company['name']} を検索中...")
             status_text.text(f"🔄 {company['name']} からデータを取得しています...")
 
             try:
@@ -477,7 +488,7 @@ with tab3:
                 ['不明', 'あり', 'なし']
             )
 
-        eval_notes = st.text_area("その他の特記事項", placeholder="例: 駅から徒歩5分、駐車場あり")
+        eval_notes = st.text_area("その他の特記事項", placeholder="例: 駻から徒歩5分、駐車場ある")
 
         submitted = st.form_submit_button("📋 評価実行", type="primary")
 
@@ -557,7 +568,7 @@ with tab3:
 
         with col_right:
             if result['risks']:
-                st.subheader("⚠️ 懵念点・リスク")
+                st.subheader("⚠️ 懸念点・リスク")
                 for r in result['risks']:
                     st.warning(r)
 
@@ -640,7 +651,7 @@ with tab4:
 # ========================================
 st.divider()
 st.caption(
-    "⚠️ このツールは個人利用・学習目的に限定されます。"
+    "⚠️ このツールは倊人利用・学習目的に限定されます。"
     "商用化や大規模利用を行う場合は、各サイトの公式APIへの移行を検討してください。"
     f" | 最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 )
