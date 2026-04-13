@@ -449,7 +449,7 @@ with tab1:
         )
 
         ascending = sort_col == 'price'
-        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last')
+        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last') if sort_col in df.columns else df
 
         # Display columns
         display_cols = [
@@ -649,7 +649,7 @@ with tab2:
         )
 
         ascending = sort_col == 'rent'
-        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last')
+        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last') if sort_col in df.columns else df
 
         # Display columns
         display_cols = [
