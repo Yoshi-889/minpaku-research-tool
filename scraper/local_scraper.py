@@ -1,4 +1,4 @@
-阿蘇地域の不動産会社リスト（拡張可能）ハイトスコーポレーションハイトスコーポレーション阿蘇市阿蘇地域を中心とした不動産会社アパマンショップ光の森店アパマンショップ光の森店熊本県全般全国チェーン（熊本エリア）大東建託リーシング熊本中央店大東建託リーシング熊本県全般（大東建託）の賃貸物件明和不動産明和不動産熊本県全般熊本県を中心とした地域密着型不動産会社阿蘇市阿蘇万円熊本県²㎡管理費等円円新築築年阿蘇市万円阿蘇²㎡熊本県"""Local real estate company scraper.
+"""Local real estate company scraper.
 
 Scrapes individual real estate company websites in Aso area.
 User can select which local companies to include.
@@ -9,35 +9,35 @@ from datetime import datetime
 from .base_scraper import BaseScraper
 
 
-# é¿èå°åã®ä¸åç£ä¼ç¤¾ãªã¹ãï¼æ¡å¼µå¯è½ï¼
+# 阿蘇地域の不動産会社リスト（拡張可能）
 LOCAL_COMPANIES = {
-    'ãã¤ãã¹ã³ã¼ãã¬ã¼ã·ã§ã³': {
-        'name': 'ãã¤ãã¹ã³ã¼ãã¬ã¼ã·ã§ã³',
+    'ハイトスコーポレーション': {
+        'name': 'ハイトスコーポレーション',
         'url': 'https://www.hights.co.jp',
         'search_url': 'https://www.hights.co.jp/rent/list/',
-        'area': 'é¿èå¸',
-        'description': 'é¿èå°åãä¸­å¿ã¨ããä¸åç£ä¼ç¤¾',
+        'area': '阿蘇市',
+        'description': '阿蘇地域を中心とした不動産会社',
     },
-    'ã¢ããã³ã·ã§ããåã®æ£®åº': {
-        'name': 'ã¢ããã³ã·ã§ããåã®æ£®åº',
+    'アパマンショップ光の森店': {
+        'name': 'アパマンショップ光の森店',
         'url': 'https://www.apamanshop.com',
         'search_url': 'https://www.apamanshop.com/ensen/03610/area/',
-        'area': 'çæ¬çå¨è¬',
-        'description': 'å¨å½ãã§ã¼ã³ï¼çæ¬ã¨ãªã¢ï¼',
+        'area': '犊本県全般',
+        'description': '全国チェーン（犊本エリア）',
     },
-    'å¤§æ±å»ºè¨ãªã¼ã·ã³ã°çæ¬ä¸­å¤®åº': {
-        'name': 'å¤§æ±å»ºè¨ãªã¼ã·ã³ã°',
+    '大東建託リーシング犊本中央店': {
+        'name': '大東建託リーシング',
         'url': 'https://www.eheya.net',
         'search_url': 'https://www.eheya.net/kumamoto/',
-        'area': 'çæ¬çå¨è¬',
-        'description': 'DK SELECTï¼å¤§æ±å»ºè¨ï¼ã®è³è²¸ç©ä»¶',
+        'area': '熊本県全般',
+        'description': 'DK SELECT（大東建託）の賃貸物件',
     },
-    'æåä¸åç£': {
-        'name': 'æåä¸åç£',
+    '明和不動産': {
+        'name': '明和不動産',
         'url': 'https://www.meiwa-fudosan.co.jp',
         'search_url': 'https://www.meiwa-fudosan.co.jp/rent/',
-        'area': 'çæ¬çå¨è¬',
-        'description': 'çæ¬çãä¸­å¿ã¨ããå°åå¯çåä¸åç£ä¼ç¤¾',
+        'area': '犊本県全般',
+        'description': '犊本県を中心とした地域密着型不動産会社',
     },
 }
 
@@ -110,14 +110,14 @@ class LocalScraper(BaseScraper):
         """Parse a generic property block."""
         try:
             text = block.get_text()
-            city = conditions.get('city', 'é¿èå¸')
+            city = conditions.get('city', '阿蘇市')
 
             # Filter by city if possible
-            if city and city not in text and 'é¿è' not in text:
+            if city and city not in text and '阿蘇' not in text:
                 return None
 
             rent = None
-            rent_match = re.search(r'([\d.]+)\s*ä¸å', text)
+            rent_match = re.search(r'([\d.]+)\s*万円', text)
             if rent_match:
                 rent = float(rent_match.group(1))
 
@@ -132,7 +132,7 @@ class LocalScraper(BaseScraper):
 
             # Address
             address = ''
-            match = re.search(r'(çæ¬ç[^\s\n]+)', text)
+            match = re.search(r'(犊本県[^\s\n]+)', text)
             if match:
                 address = match.group(1)
 
@@ -144,21 +144,21 @@ class LocalScraper(BaseScraper):
 
             # Area
             area = None
-            area_match = re.search(r'([\d.]+)\s*m[Â²ã¡]', text)
+            area_match = re.search(r'([\d.]+)\s*m[²㎡]', text)
             if area_match:
                 area = float(area_match.group(1))
 
             # Management fee
             mgmt_fee = None
-            mgmt_match = re.search(r'ç®¡çè²»[ç­]?\s*([\d,]+)\s*å', text)
+            mgmt_match = re.search(r'管理費[等]?\s*([\d,]+)\s*円', text)
             if not mgmt_match:
-                mgmt_match = re.search(r'/\s*([\d,]+)\s*å', text)
+                mgmt_match = re.search(r'/\s*([\d,]+)\s*円', text)
             if mgmt_match:
                 mgmt_fee = float(mgmt_match.group(1).replace(',', '')) / 10000
 
             # Age
             age_text = ''
-            age_match = re.search(r'(æ°ç¯|ç¯\d+å¹´)', text)
+            age_match = re.search(r'(新築|築\d+年)', text)
             if age_match:
                 age_text = age_match.group(1)
 
@@ -197,17 +197,17 @@ class LocalScraper(BaseScraper):
     def _extract_from_text(self, text: str, conditions: Dict) -> List[Dict]:
         """Fallback: extract property info from page text."""
         properties = []
-        city = conditions.get('city', 'é¿èå¸')
+        city = conditions.get('city', '阿蘇市')
 
         # Find all rent mentions
-        rent_matches = list(re.finditer(r'([\d.]+)\s*ä¸å', text))
+        rent_matches = list(re.finditer(r'([\d.]+)\s*万円', text))
 
         for match in rent_matches[:20]:  # Limit to 20
             start = max(0, match.start() - 200)
             end = min(len(text), match.end() + 200)
             context = text[start:end]
 
-            if city and city not in context and 'é¿è' not in context:
+            if city and city not in context and '阿蘇' not in context:
                 continue
 
             rent = float(match.group(1))
@@ -221,12 +221,12 @@ class LocalScraper(BaseScraper):
                 layout = layout_match.group(1)
 
             area = None
-            area_match = re.search(r'([\d.]+)\s*m[Â²ã¡]', context)
+            area_match = re.search(r'([\d.]+)\s*m[²㎡]', context)
             if area_match:
                 area = float(area_match.group(1))
 
             address = ''
-            addr_match = re.search(r'(çæ¬ç[^\s\n]+)', context)
+            addr_match = re.search(r'(熊本県[^\s\n]+)', context)
             if addr_match:
                 address = addr_match.group(1)
 
