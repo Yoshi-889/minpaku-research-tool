@@ -164,49 +164,47 @@ with st.sidebar:
 
     max_pages = st.slider("最大ページ数（サイトごと）", 1, 10, 3)
 
-    # New filters: City planning, zoning, land category
-    st.header("🏗️ 土地用途フィルター")
+    # Exclusion-based filters: exclude clearly unsuitable properties
+    # Properties with unknown/empty data are ALWAYS included
+    st.header("🏗️ 除外フィルター")
+    st.caption("明らかに不適合な条件を除外します。情報なし・不明の物件は除外されません。")
 
-    # Default options
-    all_city_planning = ['市街化区域', '市街化調整区域', '不明']
-    all_zoning = ['商業地域', '近隣商業地域', '準工業地域', '準住居地域', '住居地域', '住宅地', '工業地域', '工業専用地域', '不明']
-    all_land_categories = ['宅地', '農地', '雑種地', '不明']
+    # Zoning types to EXCLUDE
+    exclude_zoning = st.multiselect(
+        "除外する用途地域",
+        ['工業専用地域', '工業地域'],
+        default=['工業専用地域'],
+        help="選択した用途地域の物件を除外（情報なし・不明は除外しません）"
+    )
 
-    # Minpaku eligibility filter
+    # City planning to EXCLUDE
+    exclude_city_planning = st.multiselect(
+        "除外する都市計画",
+        ['市街化調整区域'],
+        default=[],
+        help="選択した都市計画の物件を除外（情報なし・不明は除外しません）"
+    )
+
+    # Land category to EXCLUDE
+    exclude_land_category = st.multiselect(
+        "除外する地目",
+        ['農地'],
+        default=[],
+        help="選択した地目の物件を除外（情報なし・不明は除外しません）"
+    )
+
+    # Ryokan filter (positive for 365-day operation)
     minpaku_365_eligible = st.checkbox(
         "🏨 旅館業法（365日営業）向けフィルター",
         value=False,
-        help="旅館業法適用可能な物件のみを自動フィルター"
+        help="旅館業法適用可能な用途地域の物件のみ表示（情報なしも含む）"
     )
 
     if minpaku_365_eligible:
         st.info(
             "🏨 以下の条件を自動適用します：\n"
-            "- 用途地域: 商業地域、近隣商業地域、準工業地域、準住居地域\n"
-            "- 都市計画: 市街化区域\n"
-            "- 地目: 宅地"
-        )
-        selected_city_planning = ['市街化区域']
-        selected_zoning = RYOKAN_YOTO_CHIIKI
-        selected_land_category = ['宅地']
-    else:
-        selected_city_planning = st.multiselect(
-            "都市計画",
-            all_city_planning,
-            default=all_city_planning,
-            help="市街化区域か調整区域か"
-        )
-        selected_zoning = st.multiselect(
-            "用途地域",
-            all_zoning,
-            default=all_zoning,
-            help="地域の用途制限"
-        )
-        selected_land_category = st.multiselect(
-            "地目",
-            all_land_categories,
-            default=all_land_categories,
-            help="土地の種類"
+            "- 用途地域: 商業地域、近隣商業地域、準工業地域、準住居地域（＋情報なし）\n"
+            "- 工業専用地域・住居専用地域を除外"
         )
 
     st.header("🌐 データソース選択")
@@ -240,6 +238,42 @@ with st.sidebar:
 if not check_password():
     st.stop()
 
+
+# ========================================
+# Post-scrape exclusion filter
+# ========================================
+def apply_exclusion_filter(df, conditions):
+    """Filter out clearly unsuitable properties. Keep unknown/empty values."""
+    if df is None or df.empty:
+        return df
+
+    exclude_zoning = conditions.get('exclude_zoning', [])
+    exclude_city_planning = conditions.get('exclude_city_planning', [])
+    exclude_land_category = conditions.get('exclude_land_category', [])
+    is_ryokan = conditions.get('minpaku_365_eligible', False)
+
+    # Exclude specific zoning types (but keep empty/unknown)
+    if exclude_zoning:
+        mask = ~df['zoning'].isin(exclude_zoning) | df['zoning'].isin(['', '不明']) | df['zoning'].isna()
+        df = df[mask]
+
+    # Exclude specific city planning types (but keep empty/unknown)
+    if exclude_city_planning:
+        mask = ~df['city_planning'].isin(exclude_city_planning) | df['city_planning'].isin(['', '不明']) | df['city_planning'].isna()
+        df = df[mask]
+
+    # Exclude specific land categories (but keep empty/unknown)
+    if exclude_land_category:
+        mask = ~df['land_category'].isin(exclude_land_category) | df['land_category'].isin(['', '不明']) | df['land_category'].isna()
+        df = df[mask]
+
+    # Ryokan 365 filter: keep only eligible zoning + unknown/empty
+    if is_ryokan:
+        ryokan_ok = ['商業地域', '近隣商業地域', '準工業地域', '準住居地域']
+        mask = df['zoning'].isin(ryokan_ok) | df['zoning'].isin(['', '不明']) | df['zoning'].isna()
+        df = df[mask]
+
+    return df.reset_index(drop=True)
 
 # ========================================
 # Main Content
@@ -290,9 +324,10 @@ with tab1:
             'area_max': area_max if area_max > 0 else None,
             'max_pages': max_pages,
             'mode': 'purchase',
-            'city_planning': selected_city_planning,
-            'zoning': selected_zoning,
-            'land_category': selected_land_category,
+            'exclude_zoning': exclude_zoning,
+            'exclude_city_planning': exclude_city_planning,
+            'exclude_land_category': exclude_land_category,
+            'minpaku_365_eligible': minpaku_365_eligible,
         }
 
         all_results = {}
@@ -369,6 +404,10 @@ with tab1:
         # Merge and dedup
         if all_results:
             merged = merge_properties(all_results)
+            # Apply exclusion filter
+            if merged:
+                filtered_df = apply_exclusion_filter(pd.DataFrame(merged), conditions)
+                merged = filtered_df.to_dict('records')
             st.session_state.search_results = merged
 
             # Calculate purchase metrics
@@ -482,9 +521,10 @@ with tab2:
             'area_max': area_max if area_max > 0 else None,
             'max_pages': max_pages,
             'mode': 'rental',
-            'city_planning': selected_city_planning,
-            'zoning': selected_zoning,
-            'land_category': selected_land_category,
+            'exclude_zoning': exclude_zoning,
+            'exclude_city_planning': exclude_city_planning,
+            'exclude_land_category': exclude_land_category,
+            'minpaku_365_eligible': minpaku_365_eligible,
         }
 
         all_results = {}
@@ -561,6 +601,10 @@ with tab2:
         # Merge and dedup
         if all_results:
             merged = merge_properties(all_results)
+            # Apply exclusion filter
+            if merged:
+                filtered_df = apply_exclusion_filter(pd.DataFrame(merged), conditions)
+                merged = filtered_df.to_dict('records')
             st.session_state.search_results = merged
 
             # Calculate minpaku metrics for rental
