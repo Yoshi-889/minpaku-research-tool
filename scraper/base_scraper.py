@@ -69,22 +69,22 @@ class BaseScraper:
         raise NotImplementedError
 
     def _parse_price(self, text: str) -> Optional[float]:
-        """Parse Japanese price text to float (in ä¸å)."""
+        """Parse Japanese price text to float (in 万円)."""
         if not text:
             return None
         import re
-        text = text.strip().replace(',', '').replace('ã', '')
-        # Match patterns like "6.9ä¸å" or "69000å"
-        match = re.search(r'([\d.]+)\s*ä¸å', text)
+        text = text.strip().replace(',', '').replace('　', '')
+        # Match patterns like "6.9万円" or "69000円"
+        match = re.search(r'([\d.]+)\s*万円', text)
         if match:
             return float(match.group(1))
-        match = re.search(r'([\d,]+)\s*å', text)
+        match = re.search(r'([\d,]+)\s*円', text)
         if match:
             return float(match.group(1).replace(',', '')) / 10000
         return None
 
     def _parse_area(self, text: str) -> Optional[float]:
-        """Parse area text to float (in mÂ²)."""
+        """Parse area text to float (in m²)."""
         if not text:
             return None
         import re
@@ -100,9 +100,9 @@ class BaseScraper:
             return None
         import re
         text = text.strip()
-        if 'æ°ç¯' in text:
+        if '新築' in text:
             return 0
-        match = re.search(r'ç¯?(\d+)\s*å¹´', text)
+        match = re.search(r'築?(\d+)\s*年', text)
         if match:
             return int(match.group(1))
         return None
@@ -112,10 +112,10 @@ class BaseScraper:
         if not text:
             return None
         import re
-        match = re.search(r'æ­©\s*(\d+)\s*å', text)
+        match = re.search(r'歩\s*(\d+)\s*分', text)
         if match:
             return int(match.group(1))
-        match = re.search(r'å¾æ­©\s*(\d+)\s*å', text)
+        match = re.search(r'徒歩\s*(\d+)\s*分', text)
         if match:
             return int(match.group(1))
         return None
@@ -126,7 +126,7 @@ class BaseScraper:
             return ""
         import re
         # Full-width to half-width numbers
-        table = str.maketrans('ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼', '0123456789')
+        table = str.maketrans('０１２３４５６７８９', '0123456789')
         address = address.translate(table)
         # Remove spaces
         address = re.sub(r'\s+', '', address)
