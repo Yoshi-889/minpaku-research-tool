@@ -124,8 +124,18 @@ with st.sidebar:
     )
 
     st.header("📍 エリア設定")
-    prefecture = st.selectbox("都道府県", ['熊本県', '福岡県', '大分県'], index=0)
-    city = st.text_input("市区町村", value='阿蘇市')
+    ALL_PREFECTURES = [
+        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+        '岐阜県', '静岡県', '愛知県', '三重県',
+        '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '徳島県', '香川県', '愛媛県', '高知県',
+        '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+    ]
+    prefecture = st.selectbox("都道府県", ALL_PREFECTURES, index=ALL_PREFECTURES.index('熊本県'))
+    city = st.text_input("市区町村（複数はカンマ区切り）", value='阿蘇市', help='例: 阿蘇市,南阿蘇村,西原村')
 
     st.header("💰 条件フィルター")
     # Initialize defaults for both modes
@@ -269,9 +279,11 @@ with tab1:
             )
 
     if purchase_search_clicked:
+        cities = [c.strip() for c in city.split(',') if c.strip()]
         conditions = {
             'prefecture': prefecture,
-            'city': city,
+            'city': cities[0] if len(cities) == 1 else cities[0],
+            'cities': cities,
             'price_min': price_min if price_min > 0 else None,
             'price_max': price_max if price_max > 0 else None,
             'area_min': area_min if area_min > 0 else None,
@@ -306,11 +318,19 @@ with tab1:
 
             try:
                 scraper = ScraperClass()
-                results = scraper.scrape(conditions)
-                if results:
-                    all_results[site_name] = results
-                    total_found += len(results)
-                    status_text.text(f"✅ {site_name}: {len(results)} 件取得")
+                site_results = []
+                for _city in cities:
+                    city_conditions = {**conditions, 'city': _city}
+                    try:
+                        r = scraper.scrape(city_conditions)
+                        if r:
+                            site_results.extend(r)
+                    except Exception as ce:
+                        status_text.text(f"⚠️ {site_name}/{_city}: {str(ce)[:80]}")
+                if site_results:
+                    all_results[site_name] = site_results
+                    total_found += len(site_results)
+                    status_text.text(f"✅ {site_name}: {len(site_results)} 件取得")
                 else:
                     status_text.text(f"⚠️ {site_name}: 物件が見つかりませんでした")
             except Exception as e:
@@ -326,11 +346,19 @@ with tab1:
 
             try:
                 scraper = LocalScraper(company_key)
-                results = scraper.scrape(conditions)
-                if results:
-                    all_results[company['name']] = results
-                    total_found += len(results)
-                    status_text.text(f"✅ {company['name']}: {len(results)} 件取得")
+                site_results = []
+                for _city in cities:
+                    city_conditions = {**conditions, 'city': _city}
+                    try:
+                        r = scraper.scrape(city_conditions)
+                        if r:
+                            site_results.extend(r)
+                    except Exception as ce:
+                        status_text.text(f"⚠️ {company['name']}/{_city}: {str(ce)[:80]}")
+                if site_results:
+                    all_results[company['name']] = site_results
+                    total_found += len(site_results)
+                    status_text.text(f"✅ {company['name']}: {len(site_results)} 件取得")
                 else:
                     status_text.text(f"⚠️ {company['name']}: 物件が見つかりませんでした")
             except Exception as e:
@@ -443,9 +471,11 @@ with tab2:
             )
 
     if rental_search_clicked:
+        cities = [c.strip() for c in city.split(',') if c.strip()]
         conditions = {
             'prefecture': prefecture,
-            'city': city,
+            'city': cities[0] if len(cities) == 1 else cities[0],
+            'cities': cities,
             'rent_min': rent_min if rent_min > 0 else None,
             'rent_max': rent_max if rent_max > 0 else None,
             'area_min': area_min if area_min > 0 else None,
@@ -480,11 +510,19 @@ with tab2:
 
             try:
                 scraper = ScraperClass()
-                results = scraper.scrape(conditions)
-                if results:
-                    all_results[site_name] = results
-                    total_found += len(results)
-                    status_text.text(f"✅ {site_name}: {len(results)} 件取得")
+                site_results = []
+                for _city in cities:
+                    city_conditions = {**conditions, 'city': _city}
+                    try:
+                        r = scraper.scrape(city_conditions)
+                        if r:
+                            site_results.extend(r)
+                    except Exception as ce:
+                        status_text.text(f"⚠️ {site_name}/{_city}: {str(ce)[:80]}")
+                if site_results:
+                    all_results[site_name] = site_results
+                    total_found += len(site_results)
+                    status_text.text(f"✅ {site_name}: {len(site_results)} 件取得")
                 else:
                     status_text.text(f"⚠️ {site_name}: 物件が見つかりませんでした")
             except Exception as e:
@@ -500,11 +538,19 @@ with tab2:
 
             try:
                 scraper = LocalScraper(company_key)
-                results = scraper.scrape(conditions)
-                if results:
-                    all_results[company['name']] = results
-                    total_found += len(results)
-                    status_text.text(f"✅ {company['name']}: {len(results)} 件取得")
+                site_results = []
+                for _city in cities:
+                    city_conditions = {**conditions, 'city': _city}
+                    try:
+                        r = scraper.scrape(city_conditions)
+                        if r:
+                            site_results.extend(r)
+                    except Exception as ce:
+                        status_text.text(f"⚠️ {company['name']}/{_city}: {str(ce)[:80]}")
+                if site_results:
+                    all_results[company['name']] = site_results
+                    total_found += len(site_results)
+                    status_text.text(f"✅ {company['name']}: {len(site_results)} 件取得")
                 else:
                     status_text.text(f"⚠️ {company['name']}: 物件が見つかりませんでした")
             except Exception as e:
