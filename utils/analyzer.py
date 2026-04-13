@@ -1,205 +1,173 @@
-"""Property analysis utilities for 民泊 (vacation rental) research.
-
-Evaluation criteria based on:
-- 旅館業法（簡易宿所営業）
-- 住宅宿泊事業法（民泊新法）
-- 建築基準法
-- 消防法
 """
+Analysis module for minpaku property research tool.
+Handles evaluation, metrics calculation, and report generation.
+"""
+
 import pandas as pd
-import numpy as np
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import List, Dict, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
 
-# ========================================
-# 民泊評価基準定数
-# ========================================
-SHIN_TAISHIN_YEAR = 1981  # 新耐震基準の境目
-
-GOOD_YOTO_CHIIKI = [
-    '第一種住居地域', '第二種住居地域', '準住居地域',
-    '近隣商業地域', '商業地域', '準工業地域',
-]
-BAD_YOTO_CHIIKI = [
-    '第一種低層住居専用地域', '第二種低層住居専用地域',
-    '第一種中高層住居専用地域', '第二種中高層住居専用地域',
-]
-MIN_SCHOOL_DISTANCE_M = 100
-MAX_AREA_NO_CHANGE = 200
-
+# Constants
+SHIN_TAISHIN_YEAR = 1981
+GOOD_YOTO_CHIIKI = ['第一種低層住居専用地域', '第二種低層住居専用地域', '第一種中高層住居専用地域', '第二種中高層住居専用地域', '第一種住居地域', '第二種住居地域']
+BAD_YOTO_CHIIKI = ['工業地域', '工業専用地域']
+RYOKAN_YOTO_CHIIKI = ['商業地域', '近隣商業地域', '準工業地域', '準住居地域']
+MIN_SCHOOL_DISTANCE_M = 500
+MAX_AREA_NO_CHANGE = 100
 ASO_TOURISM_DATA = {
-    'annual_visitors': 18_000_000,
-    'avg_daily_rate_minpaku': 8000,
-    'avg_occupancy_rate': 0.45,
-    'peak_months': [3, 4, 5, 7, 8, 9, 10, 11],
-    'peak_occupancy': 0.70,
-    'off_peak_occupancy': 0.25,
-    'nearby_attractions': [
-        '阿蘇山中岳火口', '草千里ヶ浜', '大観峰', '阿蘇神社',
-        '内牧温泉', '黒川温泉（南小国町）', '阿蘇ファームランド'
-    ],
+    'Aso': {'visitors': 1200000, 'avg_stay_days': 1.5}
 }
 
 
-# ========================================
-# 個別物件の民泊適性評価（5段階: S, A, B, C, D）
-# ========================================
+def evaluate_minpaku_property(property_data: Dict) -> Dict:
+    """
+    Evaluate a minpaku property based on 5 criteria.
 
-def evaluate_minpaku_property(
-    building_year: Optional[int] = None,
-    yoto_chiiki: Optional[str] = None,
-    is_shigaika_chosei: Optional[bool] = None,
-    school_distance_m: Optional[float] = None,
-    total_floor_area_m2: Optional[float] = None,
-    has_fire_equipment: Optional[bool] = None,
-    additional_notes: str = '',
-) -> Dict:
-    """民泊物件の総合評価を行う。"""
-    merits = []
-    risks = []
-    advice = []
-    score = 50
+    Args:
+        property_data: Dictionary containing property information
 
-    # 1. 耐震基準
-    if building_year is not None:
-        if building_year >= SHIN_TAISHIN_YEAR:
-            merits.append(
-                f"【耐震基準 ⭕️】{building_year}年築 → 新耐震基準に適合。融資寯査でも有利。"
-            )
-            score += 15
-        else:
-            risks.append(
-                f"【耐震基準 ❌】{building_year}年築 → 旧耐震基準。"
-                "耐震診断・補強工事に多額の費用リスク。融資も通りにくい。"
-            )
-            advice.append("建築士による耐震診断を必ず実施。自治体の耐震改修補助金も確認を。")
-            score -= 20
-    else:
-        risks.append("【耐震基準 ⚠️】築年数不明。建築確認年月日を必ず確認してください。")
+    Returns:
+        Dictionary with evaluation results for each criterion
+    """
+    results = {}
 
-    # 2. 用途地域
-    if yoto_chiiki:
-        if yoto_chiiki in GOOD_YOTO_CHIIKI:
-            merits.append(f"【用途地域 ⭕️】{yoto_chiiki} → 旅館業法で365日営業可能。")
-            score += 15
-        elif yoto_chiiki in BAD_YOTO_CHIIKI:
-            risks.append(
-                f"【用途地域 ❌】{yoto_chiiki} → 旅館業法での営業不可。"
-                "新法での180日/年制限のみ。収益���が大幅に低下。"
-            )
-            score -= 15
-        else:
-            risks.append(f"【用途地域 ⚠️】{yoto_chiiki} → 営業可否を自治体に要確認。")
-    else:
-        risks.append("【用途地域 ⚠️】用途地域不明。都市計画図で確認してください。")
-
-    # 3. 市街化調整区域
-    if is_shigaika_chosei is not None:
-        if is_shigaika_chosei:
-            risks.append("【土地区分 ❌】市街化調整区域。民泊営業は極めて困難。")
-            score -= 25
-        else:
-            merits.append("【土地区分 ⭕️】市街化調整区域外。用途変更の制限なし。")
-            score += 5
-
-    # 4. 周边施設
-    if school_distance_m is not None:
-        if school_distance_m >= MIN_SCHOOL_DISTANCE_M:
-            merits.append(
-                f"【周辺施設 ⭕️】最寄り学校等から{school_distance_m:.0f}m → 100m以上で問題なし。"
-            )
-            score += 10
-        else:
-            risks.append(
-                f"【周辺施設 ❌】最寄り学校等から{school_distance_m:.0f}m → "
-                "100m未満。旅館業の許可が下りない可能性。"
-            )
-            score -= 15
-    else:
-        risks.append("【周边施設 ⚠️】学校・児童福祉施設・公園からの距離不明。要確認。")
-
-    # 5. 建物規模
-    if total_floor_area_m2 is not None:
-        if total_floor_area_m2 < MAX_AREA_NO_CHANGE:
-            merits.append(
-                f"【建物規模 ⭕️】{total_floor_area_m2:.1f}㎡ → "
-                "200㎡未満で用途変更手続き不要。"
-            )
-            score += 10
-        else:
-            risks.append(
-                f"【建物規模 ❌】{total_floor_area_m2:.1f}㎡ → "
-                "200㎡以上。用途変更申請が必要（設計費用＋時間）。"
-            )
-            score -= 10
-
-    # 6. 消防設備
-    if has_fire_equipment is not None:
-        if has_fire_equipment:
-            merits.append("【消防設備 ⭕️】消防設備あり。追加工事費用を抑えられる可能性。")
-            score += 5
-        else:
-            risks.append("【消防設備 ❌】消防設備なし。設置工事が必要（数万円〜数十万円）。")
-            score -= 5
-
-    # 共通アドバイス
-    advice.append("【必須】管轄保健所での旅館業許可（または民泊届出）の事前相談を必ず行ってください。")
-    advice.append("【条例確認】自治体独自の上乗せ条例（営業日数制限・区域制限等）を確認してください。")
-
-    # Cap score to 100
-    score = min(100, max(0, score))
-
-    # 総合評価
-    if score >= 85:
-        grade, summary = 'S', '民泊営業に極めて適した物件。速やかに事業開始が見込めます。'
-    elif score >= 70:
-        grade, summary = 'A', '民泊営業に適した物件。一部確認事項ありますが大きな障害なし。'
-    elif score >= 55:
-        grade, summary = 'B', '民泊営業は可能ですが、確認・対応が必要な項目があります。'
-    elif score >= 40:
-        grade, summary = 'C', '民泊営業にいくつかの課題あり。費用対効果を慎重に検討。'
-    else:
-        grade, summary = 'D', '民泊営業に重大な障害あり。他の物件の検討を推奨。'
-
-    return {
-        'grade': grade, 'score': score, 'summary': summary,
-        'merits': merits, 'risks': risks, 'advice': advice,
+    # Criterion 1: 耐震 (Seismic resistance)
+    year_built = property_data.get('year_built', 0)
+    results['seismic'] = {
+        'score': 100 if year_built >= SHIN_TAISHIN_YEAR else 50,
+        'description': 'Post-1981 construction' if year_built >= SHIN_TAISHIN_YEAR else 'Pre-1981 construction'
     }
 
+    # Criterion 2: 用途地域 (Zoning)
+    yoto_chiiki = property_data.get('yoto_chiiki', '')
+    if yoto_chiiki in GOOD_YOTO_CHIIKI:
+        results['zoning'] = {'score': 100, 'description': 'Residential zoning (excellent for minpaku)'}
+    elif yoto_chiiki in RYOKAN_YOTO_CHIIKI:
+        results['zoning'] = {'score': 80, 'description': 'Commercial/mixed zoning (suitable for 365-day operation)'}
+    elif yoto_chiiki in BAD_YOTO_CHIIKI:
+        results['zoning'] = {'score': 30, 'description': 'Industrial zoning (not suitable for minpaku)'}
+    else:
+        results['zoning'] = {'score': 60, 'description': 'Other zoning classification'}
 
-def format_evaluation_report(eval_result: Dict) -> str:
-    """Format evaluation result as readable report."""
-    lines = [
-        f"{'='*50}",
-        f"  民泊物件 総合評価: {eval_result['grade']} ({eval_result['score']}/100)",
-        f"{'='*50}",
-        f"\n{eval_result['summary']}\n",
+    # Criterion 3: 市街化調整区域 (Urbanization promotion area)
+    is_urbanization_control = property_data.get('urbanization_control_area', False)
+    results['urbanization'] = {
+        'score': 100 if not is_urbanization_control else 30,
+        'description': 'Not in urbanization control area' if not is_urbanization_control else 'In urbanization control area (restrictions apply)'
+    }
+
+    # Criterion 4: 周辺施設 (Nearby facilities)
+    school_distance_m = property_data.get('school_distance_m', float('inf'))
+    facility_score = 100 if school_distance_m < MIN_SCHOOL_DISTANCE_M else 60
+    results['facilities'] = {
+        'score': facility_score,
+        'description': f'School within {MIN_SCHOOL_DISTANCE_M}m' if school_distance_m < MIN_SCHOOL_DISTANCE_M else 'No school within {MIN_SCHOOL_DISTANCE_M}m'
+    }
+
+    # Criterion 5: 建物規模・消防設備 (Building size and fire equipment)
+    building_area = property_data.get('building_area', 0)
+    has_fire_equipment = property_data.get('fire_equipment', False)
+
+    if building_area <= MAX_AREA_NO_CHANGE:
+        size_score = 100 if has_fire_equipment else 70
+    else:
+        size_score = 80 if has_fire_equipment else 50
+
+    results['building'] = {
+        'score': size_score,
+        'description': f'Building area {building_area}m²' + (' with fire equipment' if has_fire_equipment else '')
+    }
+
+    return results
+
+
+def format_evaluation_report(evaluation: Dict) -> str:
+    """
+    Format evaluation results into a readable report.
+
+    Args:
+        evaluation: Dictionary from evaluate_minpaku_property()
+
+    Returns:
+        Formatted string report
+    """
+    report = "=== Minpaku Property Evaluation Report ===\n\n"
+
+    criteria = [
+        ('耐震 (Seismic)', 'seismic'),
+        ('用途地域 (Zoning)', 'zoning'),
+        ('市街化調整 (Urbanization)', 'urbanization'),
+        ('周辺施設 (Facilities)', 'facilities'),
+        ('建物規模・消防 (Building/Fire)', 'building')
     ]
-    if eval_result['merits']:
-        lines.append("─── メリット ───")
-        for m in eval_result['merits']:
-            lines.append(f"  {m}")
-        lines.append("")
-    if eval_result['risks']:
-        lines.append("─── 懸念点・リスク ───")
-        for r in eval_result['risks']:
-            lines.append(f"  {r}")
-        lines.append("")
-    if eval_result['advice']:
-        lines.append("─── 専門家からのアドバイス ───")
-        for a in eval_result['advice']:
-            lines.append(f"  {a}")
-    return '\n'.join(lines)
 
+    for label, key in criteria:
+        result = evaluation.get(key, {})
+        report += f"{label}: {result.get('score', 0)}/100\n"
+        report += f"  {result.get('description', 'N/A')}\n\n"
 
-# ========================================
-# 物件リストの収益シミュレーション
-# ========================================
+    avg_score = sum(r.get('score', 0) for r in evaluation.values()) / len(evaluation)
+    report += f"Average Score: {avg_score:.1f}/100\n"
+
+    return report
+
 
 def calculate_minpaku_metrics(
+    properties: List[Dict],
+    daily_rate: int = 8000,
+    occupancy_rate: float = 0.45,
+    is_365_days: bool = True
+) -> pd.DataFrame:
+    """
+    Calculate minpaku-specific metrics for rental properties.
+
+    Args:
+        properties: List of property dictionaries with 'rent' field
+        daily_rate: Daily rental rate in JPY
+        occupancy_rate: Expected occupancy rate (0-1)
+        is_365_days: Whether properties are rented 365 days (True) or just during peak season (False)
+
+    Returns:
+        DataFrame with calculated metrics
+    """
+    results = []
+
+    annual_days = 365 if is_365_days else 150
+
+    for prop in properties:
+        rent = prop.get('rent', 0)
+        if rent <= 0:
+            continue
+
+        rent_jpy = rent * 10000  # Convert from 万円 to JPY
+        est_annual_revenue = daily_rate * occupancy_rate * annual_days
+        annual_expenses = rent_jpy
+        annual_profit = est_annual_revenue - annual_expenses
+
+        metrics = {
+            'name': prop.get('name', 'Unknown'),
+            'rent_man_yen': rent,
+            'rent_jpy': rent_jpy,
+            'daily_rate': daily_rate,
+            'occupancy_rate': occupancy_rate * 100,
+            'est_annual_revenue': est_annual_revenue,
+            'annual_expenses': annual_expenses,
+            'annual_profit': annual_profit,
+            'gross_yield': (est_annual_revenue / rent_jpy * 100) if rent_jpy > 0 else 0,
+            'net_yield': (annual_profit / rent_jpy * 100) if rent_jpy > 0 else 0,
+            'monthly_income': annual_profit / 12,
+            'breakeven_years': rent_jpy / annual_profit if annual_profit > 0 else float('inf'),
+            'minpaku_score': _estimate_minpaku_score(prop),
+            'minpaku_grade': _score_to_grade(_estimate_minpaku_score(prop))
+        }
+        results.append(metrics)
+
+    return pd.DataFrame(results)
+
+
+def calculate_purchase_metrics(
     properties: List[Dict],
     daily_rate: int = 8000,
     occupancy_rate: float = 0.45,
@@ -208,122 +176,135 @@ def calculate_minpaku_metrics(
     management_rate: float = 0.20,
     is_365_days: bool = True,
 ) -> pd.DataFrame:
-    """Calculate 民泊 investment metrics for each property."""
-    if not properties:
-        return pd.DataFrame()
+    """
+    Calculate metrics for PURCHASE properties.
 
-    df = pd.DataFrame(properties)
-    annual_days = 365 if is_365_days else 180
+    Args:
+        properties: List of property dictionaries with 'price' field (in 万円)
+        daily_rate: Daily rental rate in JPY
+        occupancy_rate: Expected occupancy rate (0-1)
+        setup_cost: Initial setup cost in JPY
+        monthly_utilities: Monthly utility cost in JPY
+        management_rate: Management/maintenance rate as percentage of revenue (0-1)
+        is_365_days: Whether properties are rented 365 days (True) or just during peak season (False)
 
-    df['monthly_rent_jpy'] = df['rent'].apply(lambda x: x * 10000 if pd.notna(x) else None)
-    df['monthly_mgmt_jpy'] = df['management_fee'].apply(lambda x: x * 10000 if pd.notna(x) else 0)
-    df['total_monthly_cost'] = df['monthly_rent_jpy'].fillna(0) + df['monthly_mgmt_jpy'].fillna(0) + monthly_utilities
-    df['annual_fixed_cost'] = df['total_monthly_cost'] * 12
-    df['est_annual_revenue'] = daily_rate * occupancy_rate * annual_days
-    df['annual_mgmt_cost'] = df['est_annual_revenue'] * management_rate
-    df['annual_profit'] = df['est_annual_revenue'] - df['annual_fixed_cost'] - df['annual_mgmt_cost']
-    df['net_monthly_profit'] = df['annual_profit'] / 12
+    Returns:
+        DataFrame with calculated metrics
+    """
+    results = []
 
-    df['roi_percent'] = df.apply(
-        lambda r: (r['annual_profit'] / (r['annual_fixed_cost'] + setup_cost)) * 100
-        if r['annual_fixed_cost'] > 0 else None, axis=1
-    )
-    df['breakeven_months'] = df.apply(
-        lambda r: round(setup_cost / (r['annual_profit'] / 12), 1)
-        if r['annual_profit'] > 0 else float('inf'), axis=1
-    )
+    annual_days = 365 if is_365_days else 150
 
-    df['minpaku_score'] = df.apply(_estimate_minpaku_score, axis=1)
-    df['minpaku_grade'] = df['minpaku_score'].apply(_score_to_grade)
+    for prop in properties:
+        price = prop.get('price', 0)
+        if price <= 0:
+            continue
 
-    return df
+        price_jpy = price * 10000  # Convert from 万円 to JPY
+        est_annual_revenue = daily_rate * occupancy_rate * annual_days
+        annual_utilities = monthly_utilities * 12
+        annual_management_cost = est_annual_revenue * management_rate
+        annual_expenses = annual_utilities + annual_management_cost
+        annual_profit = est_annual_revenue - annual_expenses
 
+        gross_yield = (est_annual_revenue / price_jpy * 100) if price_jpy > 0 else 0
+        net_yield = (annual_profit / (price_jpy + setup_cost) * 100) if (price_jpy + setup_cost) > 0 else 0
+        breakeven_years = price_jpy / annual_profit if annual_profit > 0 else float('ing')
 
-def _estimate_minpaku_score(row) -> int:
-    """Estimate score from scraping data (limited info)."""
-    score = 50
+        metrics = {
+            'name': prop.get('name', 'Unknown'),
+            'price_man_yen': price,
+            'price_jpy': price_jpy,
+            'daily_rate': daily_rate,
+            'occupancy_rate': occupancy_rate * 100,
+            'setup_cost': setup_cost,
+            'monthly_utilities': monthly_utilities,
+            'management_rate': management_rate * 100,
+            'est_annual_revenue': est_annual_revenue,
+            'annual_utilities': annual_utilities,
+            'annual_management_cost': annual_management_cost,
+            'annual_expenses': annual_expenses,
+            'annual_profit': annual_profit,
+            'gross_yield': gross_yield,
+            'net_yield': net_yield,
+            'monthly_income': annual_profit / 12,
+            'breakeven_years': breakeven_years,
+            'minpaku_score': _estimate_minpaku_score(prop),
+            'minpaku_grade': _score_to_grade(_estimate_minpaku_score(prop))
+        }
+        results.append(metrics)
 
-    profit = row.get('net_monthly_profit')
-    if pd.notna(profit):
-        if profit > 50000: score += 15
-        elif profit > 30000: score += 10
-        elif profit > 10000: score += 5
-        elif profit <= 0: score -= 15
-
-    area = row.get('area')
-    if pd.notna(area):
-        if 40 <= area < 200: score += 10
-        elif area >= 200: score -= 5
-        elif area >= 25: score += 3
-        else: score -= 5
-
-    layout = str(row.get('layout', ''))
-    if any(x in layout for x in ['3LDK', '4LDK', '5LDK', '5DK']):
-        score += 10
-    elif any(x in layout for x in ['2LDK', '3DK']):
-        score += 7
-    elif any(x in layout for x in ['1LDK', '2DK']):
-        score += 3
-    elif any(x in layout for x in ['1R', '1K']):
-        score -= 5
-
-    age = row.get('age')
-    if pd.notna(age):
-        build_year = datetime.now().year - age
-        if build_year >= SHIN_TAISHIN_YEAR:
-            score += 10
-        else:
-            score -= 15
-
-    rent = row.get('rent')
-    if pd.notna(rent):
-        if rent <= 4: score += 5
-        elif rent <= 6: score += 3
-        elif rent >= 10: score -= 5
-
-    return max(0, min(100, score))
+    return pd.DataFrame(results)
 
 
-def _score_to_grade(score: int) -> str:
-    if score >= 80: return 'S'
-    elif score >= 65: return 'A'
-    elif score >= 50: return 'B'
-    elif score >= 35: return 'C'
-    else: return 'D'
+def _estimate_minpaku_score(property_data: Dict) -> float:
+    """
+    Estimate minpaku viability score for a property.
+
+    Args:
+        property_data: Property information dictionary
+
+    Returns:
+        Score from 0-100
+    """
+    evaluation = evaluate_minpaku_property(property_data)
+    scores = [result.get('score', 0) for result in evaluation.values()]
+    return sum(scores) / len(scores) if scores else 0
 
 
-def generate_summary_stats(df: pd.DataFrame) -> Dict:
-    """Generate summary statistics."""
-    if df.empty:
-        return {}
-    stats = {
-        'total_properties': len(df),
-        'sites': df['site'].value_counts().to_dict() if 'site' in df.columns else {},
+def _score_to_grade(score: float) -> str:
+    """
+    Convert numerical score to letter grade.
+
+    Args:
+        score: Numerical score (0-100)
+
+    Returns:
+        Letter grade string
+    """
+    if score >= 90:
+        return 'A'
+    elif score >= 80:
+        return 'B'
+    elif score >= 70:
+        return 'C'
+    elif score >= 60:
+        return 'D'
+    else:
+        return 'F'
+
+
+def generate_summary_stats(metrics_df: pd.DataFrame) -> Dict:
+    """
+    Generate summary statistics from metrics DataFrame.
+
+    Args:
+        metrics_df: DataFrame from calculate_minpaku_metrics() or calculate_purchase_metrics()
+
+    Returns:
+        Dictionary with summary statistics
+    """
+    if metrics_df.empty:
+        return {
+            'count': 0,
+            'avg_gross_yield': 0,
+            'avg_net_yield': 0,
+            'avg_monthly_income': 0,
+            'median_breakeven_years': 0,
+            'grade_distribution': {}
+        }
+
+    # Filter out infinite values for breakeven years
+    valid_breakeven = metrics_df[metrics_df['breakeven_years'] != float('inf')]['breakeven_years']
+    median_breakeven = valid_breakeven.median() if len(valid_breakeven) > 0 else 0
+
+    grade_dist = metrics_df['minpaku_grade'].value_counts().to_dict()
+
+    return {
+        'count': len(metrics_df),
+        'avg_gross_yield': metrics_df['gross_yield'].mean(),
+        'avg_net_yield': metrics_df['net_yield'].mean(),
+        'avg_monthly_income': metrics_df['monthly_income'].mean(),
+        'median_breakeven_years': median_breakeven,
+        'grade_distribution': grade_dist
     }
-    for col in ['rent', 'area', 'age']:
-        if col in df.columns:
-            vals = df[col].dropna()
-            if not vals.empty:
-                stats[f'{col}_avg'] = round(vals.mean(), 2)
-                stats[f'{col}_min'] = vals.min()
-                stats[f'{col}_max'] = vals.max()
-                stats[f'{col}_median'] = round(vals.median(), 2)
-    if 'layout' in df.columns:
-        stats['layout_dist'] = df['layout'].value_counts().to_dict()
-    if 'minpaku_score' in df.columns:
-        scores = df['minpaku_score'].dropna()
-        if not scores.empty:
-            stats['avg_minpaku_score'] = round(scores.mean(), 1)
-            stats['top_minpaku_count'] = int(len(scores[scores >= 65]))
-    if 'roi_percent' in df.columns:
-        roi = df['roi_percent'].dropna()
-        roi = roi[roi != float('inf')]
-        if not roi.empty:
-            stats['avg_roi'] = round(roi.mean(), 1)
-            stats['max_roi'] = round(roi.max(), 1)
-    if 'annual_profit' in df.columns:
-        profit = df['annual_profit'].dropna()
-        if not profit.empty:
-            stats['avg_annual_profit'] = round(profit.mean())
-            stats['profitable_count'] = int(len(profit[profit > 0]))
-    return stats
