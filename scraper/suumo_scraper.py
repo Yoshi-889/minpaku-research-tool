@@ -127,7 +127,7 @@ class SUUMOScraper(BaseScraper):
     }
 
     def __init__(self):
-        super().__init__()
+        super().__init__(site_name='SUUMO')
         self.source = 'suumo'
 
     def _get_region(self, prefecture: str) -> Optional[str]:
