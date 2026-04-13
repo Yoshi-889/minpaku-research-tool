@@ -41,6 +41,29 @@ st.set_page_config(
 )
 
 # ========================================
+# Password Protection
+# ========================================
+APP_PASSWORD = "jh87*(U)(UOJHu7y98u0iOP"
+
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🏠 民泊物件リサーチツール")
+    st.markdown("---")
+    st.subheader("🔏 ログイン")
+    password_input = st.text_input("パスワードを入力してください", type="password")
+    login_btn = st.button("ログイン", type="primary")
+    if login_btn:
+        if password_input == APP_PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("パスワードが正しくありません。")
+    st.stop()
+
+
+# ========================================
 # Custom CSS
 # ========================================
 st.markdown("""
