@@ -313,10 +313,10 @@ with tab1:
             )
 
     if purchase_search_clicked:
-        cities = [c.strip() for c in city.split(',') if c.strip()]
+        cities = [c.strip() for c in city.split(',') if c.strip()] or ['']
         conditions = {
             'prefecture': prefecture,
-            'city': cities[0] if len(cities) == 1 else cities[0],
+            'city': cities[0],
             'cities': cities,
             'price_min': price_min if price_min > 0 else None,
             'price_max': price_max if price_max > 0 else None,
@@ -510,10 +510,10 @@ with tab2:
             )
 
     if rental_search_clicked:
-        cities = [c.strip() for c in city.split(',') if c.strip()]
+        cities = [c.strip() for c in city.split(',') if c.strip()] or ['']
         conditions = {
             'prefecture': prefecture,
-            'city': cities[0] if len(cities) == 1 else cities[0],
+            'city': cities[0],
             'cities': cities,
             'rent_min': rent_min if rent_min > 0 else None,
             'rent_max': rent_max if rent_max > 0 else None,
