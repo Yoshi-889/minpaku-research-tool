@@ -1,4 +1,4 @@
-"""ä¸åç£ç©ä»¶ã¹ã¯ã¬ã¤ãã³ã°ï¼æ°æ³é©æ§åæãã¼ã«ï¼åäººå©ç¨PoCçï¼
+"""不動産物件スクレイピング＆民泊適性分析ツール（個人利用PoC版）
 
 Streamlit UI for real estate property scraping and minpaku analysis.
 Usage: streamlit run main.py
@@ -34,8 +34,8 @@ from utils.analyzer import (
 # Page Config
 # ========================================
 st.set_page_config(
-    page_title="æ°æ³ç©ä»¶ãªãµã¼ããã¼ã«",
-    page_icon="ð ",
+    page_title="民泊物件リサーチツール",
+    page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -78,35 +78,35 @@ if 'search_running' not in st.session_state:
 # Sidebar - Search Settings
 # ========================================
 with st.sidebar:
-    st.title("ð  æ¤ç´¢è¨­å®")
+    st.title("🏠 検索設定")
 
-    st.header("ð ã¨ãªã¢è¨­å®")
-    prefecture = st.selectbox("é½éåºç", ['çæ¬ç', 'ç¦å²¡ç', 'å¤§åç'], index=0)
-    city = st.text_input("å¸åºçºæ", value='é¿èå¸')
+    st.header("📍 エリア設定")
+    prefecture = st.selectbox("都道府県", ['熊本県', '福岡県', '大分県'], index=0)
+    city = st.text_input("市区町村", value='阿蘇市')
 
-    st.header("ð° æ¡ä»¶ãã£ã«ã¿ã¼")
+    st.header("💰 条件フィルター")
     col1, col2 = st.columns(2)
     with col1:
-        rent_min = st.number_input("è³æä¸é (ä¸å)", min_value=0.0, value=0.0, step=0.5)
+        rent_min = st.number_input("賃料下限 (万円)", min_value=0.0, value=0.0, step=0.5)
     with col2:
-        rent_max = st.number_input("è³æä¸é (ä¸å)", min_value=0.0, value=20.0, step=0.5)
+        rent_max = st.number_input("賃料上限 (万円)", min_value=0.0, value=20.0, step=0.5)
 
     col3, col4 = st.columns(2)
     with col3:
-        area_min = st.number_input("é¢ç©ä¸é (ã¡)", min_value=0, value=0, step=5)
+        area_min = st.number_input("面積下限 (㎡)", min_value=0, value=0, step=5)
     with col4:
-        area_max = st.number_input("é¢ç©ä¸é (ã¡)", min_value=0, value=200, step=5)
+        area_max = st.number_input("面積上限 (㎡)", min_value=0, value=200, step=5)
 
-    max_pages = st.slider("æå¤§ãã¼ã¸æ°ï¼ãµã¤ããã¨ï¼", 1, 10, 3)
+    max_pages = st.slider("最大ページ数（サイトごと）", 1, 10, 3)
 
-    st.header("ð ãã¼ã¿ã½ã¼ã¹é¸æ")
-    st.caption("åå¾ãããµã¤ããé¸æãã¦ãã ãã")
+    st.header("🌐 データソース選択")
+    st.caption("取得するサイトを選択してください")
     use_suumo = st.checkbox("SUUMO", value=True)
     use_homes = st.checkbox("LIFULL HOME'S", value=True)
-    use_athome = st.checkbox("ã¢ãããã¼ã ", value=True)
+    use_athome = st.checkbox("アットホーム", value=True)
 
-    st.subheader("ð¢ å°åä¸åç£ä¼ç¤¾")
-    st.caption("åå¥ã®ä¸åç£ä¼ç¤¾ãµã¤ãããããã¼ã¿ãåå¾")
+    st.subheader("🏢 地元不動産会社")
+    st.caption("個別の不動産会社サイトからもデータを取得")
     selected_locals = {}
     for key, company in LOCAL_COMPANIES.items():
         selected_locals[key] = st.checkbox(
@@ -115,45 +115,45 @@ with st.sidebar:
             help=company.get('description', ''),
         )
 
-    st.header("ð æ°æ³ã·ãã¥ã¬ã¼ã·ã§ã³è¨­å®")
-    daily_rate = st.number_input("æ³å®å®¿æ³åä¾¡ (å/æ³)", min_value=1000, value=8000, step=500)
-    occupancy_rate = st.slider("æ³å®ç¨¼åç (%)", 10, 90, 45) / 100
-    setup_cost = st.number_input("åæã»ããã¢ããè²»ç¨ (å)", min_value=0, value=500000, step=50000)
-    monthly_utilities = st.number_input("æé¡åç±è²» (å)", min_value=0, value=15000, step=1000)
-    management_rate = st.slider("ç®¡çè²»ç (%)", 0, 50, 20) / 100
-    is_365_days = st.radio("å¶æ¥­å½¢æ", ['æé¤¨æ¥­æ³ï¼365æ¥ï¼', 'æ°æ³æ°æ³ï¼180æ¥ï¼']) == 'æé¤¨æ¥­æ³ï¼365æ¥ï¼'
+    st.header("📊 民泊シミュレーション設定")
+    daily_rate = st.number_input("想定宿泊単価 (円/泊)", min_value=1000, value=8000, step=500)
+    occupancy_rate = st.slider("想定稼働率 (%)", 10, 90, 45) / 100
+    setup_cost = st.number_input("初期セットアップ費用 (円)", min_value=0, value=500000, step=50000)
+    monthly_utilities = st.number_input("月額光熱費 (円)", min_value=0, value=15000, step=1000)
+    management_rate = st.slider("管理費率 (%)", 0, 50, 20) / 100
+    is_365_days = st.radio("営業形態", ['旅館業法（365日）', '民泊新法（180日）']) == '旅館業法（365日）'
 
 
 # ========================================
 # Main Content
 # ========================================
-st.title("ð  æ°æ³ç©ä»¶ãªãµã¼ããã¼ã«")
-st.caption("ä¸åç£ç©ä»¶ã®ã¹ã¯ã¬ã¤ãã³ã°ï¼æ°æ³é©æ§åæ | åäººå©ç¨PoCç")
+st.title("🏠 民泊物件リサーチツール")
+st.caption("不動産物件のスクレイピング＆民泊適性分析 | 個人利用PoC版")
 
 # Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
-    "ð ç©ä»¶æ¤ç´¢", "ð åæããã·ã¥ãã¼ã", "ðï¸ åå¥ç©ä»¶è©ä¾¡", "ð ãã¼ã¿ã¨ã¯ã¹ãã¼ã"
+    "🔍 物件検索", "📊 分析ダッシュボード", "🏛️ 個別物件評価", "📋 データエクスポート"
 ])
 
 # ========================================
 # Tab 1: Property Search
 # ========================================
 with tab1:
-    st.header("ç©ä»¶æ¤ç´¢")
+    st.header("物件検索")
     st.info(
-        "æ¤ç´¢æ¡ä»¶ããµã¤ããã¼ã§è¨­å®ããä¸ã®ãã¿ã³ãæ¼ãã¦æ¤ç´¢ãå®è¡ãã¦ãã ããã"
-        "æ¤ç´¢ã¯ãªã¢ã«ã¿ã¤ã ã§åãµã¤ãã«ã¢ã¯ã»ã¹ãããããæ°åãããå ´åãããã¾ãã"
+        "検索条件をサイドバーで設定し、下のボタンを押して検索を実行してください。"
+        "検索はリアルタイムで各サイトにアクセスするため、数分かかる場合があります。"
     )
 
     # Search button
     col_btn1, col_btn2 = st.columns([1, 3])
     with col_btn1:
-        search_clicked = st.button("ð æ¤ç´¢å®è¡", type="primary", use_container_width=True)
+        search_clicked = st.button("🔍 検索実行", type="primary", use_container_width=True)
     with col_btn2:
         if st.session_state.search_results is not None:
             st.success(
-                f"ååã®æ¤ç´¢çµæ: {len(st.session_state.search_results)} ä»¶ "
-                f"(éè¤æé¤æ¸ã¿)"
+                f"前回の検索結果: {len(st.session_state.search_results)} 件 "
+                f"(重複排除済み)"
             )
 
     if search_clicked:
@@ -170,14 +170,14 @@ with tab1:
         all_results = {}
         total_found = 0
 
-        progress_bar = st.progress(0, text="æ¤ç´¢æºåä»­...")
+        progress_bar = st.progress(0, text="検索準備中...")
         status_text = st.empty()
 
         # Determine total steps
         sites = []
         if use_suumo: sites.append(('SUUMO', SuumoScraper))
         if use_homes: sites.append(("LIFULL HOME'S", HomesScraper))
-        if use_athome: sites.append(('ã¢ãããã¼ã ', AthomeScraper))
+        if use_athome: sites.append(('アットホーム', AthomeScraper))
         local_sites = [k for k, v in selected_locals.items() if v]
         total_steps = len(sites) + len(local_sites)
         step = 0
@@ -185,8 +185,8 @@ with tab1:
         # Scrape major sites
         for site_name, ScraperClass in sites:
             step += 1
-            progress_bar.progress(step / max(total_steps, 1), text=f"{site_name} ãæ¤ç´¢ä»­...")
-            status_text.text(f"ð {site_name} ãããã¼ã¿ãåå¾ãã¦ãã¾ã...")
+            progress_bar.progress(step / max(total_steps, 1), text=f"{site_name} を検索仭...")
+            status_text.text(f"🔄 {site_name} からデータを取得しています...")
 
             try:
                 scraper = ScraperClass()
@@ -194,19 +194,19 @@ with tab1:
                 if results:
                     all_results[site_name] = results
                     total_found += len(results)
-                    status_text.text(f"â {site_name}: {len(results)} ä»¶åå¾")
+                    status_text.text(f"✅ {site_name}: {len(results)} 件取得")
                 else:
-                    status_text.text(f"â ï¸ {site_name}: ç©ä»¶ãè¦ã¤ããã¾ããã§ãã")
+                    status_text.text(f"⚠️ {site_name}: 物件が見つかりませんでした")
             except Exception as e:
-                status_text.text(f"â {site_name}: ã¨ã©ã¼ - {str(e)[:100]}")
+                status_text.text(f"❌ {site_name}: エラー - {str(e)[:100]}")
 
         # Scrape local companies
         for company_key in local_sites:
             step += 1
             company = LOCAL_COMPANIES[company_key]
             progress_bar.progress(step / max(total_steps, 1),
-                                  text=f"{company['name']} ãæ¤ç´¢ä¸­...")
-            status_text.text(f"ð {company['name']} ãããã¼ã¿ãåå¾ãã¦ãã¾ã...")
+                                  text=f"{company['name']} を検索仭...")
+            status_text.text(f"🔄 {company['name']} からデータを取得しています...")
 
             try:
                 scraper = LocalScraper(company_key)
@@ -214,13 +214,13 @@ with tab1:
                 if results:
                     all_results[company['name']] = results
                     total_found += len(results)
-                    status_text.text(f"â {company['name']}: {len(results)} ä»¶åå¾")
+                    status_text.text(f"✅ {company['name']}: {len(results)} 件取得")
                 else:
-                    status_text.text(f"â ï¸ {company['name']}: ç©ä»¶ãè¦ã¤ããã¾ããã§ãã")
+                    status_text.text(f"⚠️ {company['name']}: 物件が見つかりませんでした")
             except Exception as e:
-                status_text.text(f"â {company['name']}: ã¨ã©ã¼ - {str(e)[:100]}")
+                status_text.text(f"❌ {company['name']}: エラー - {str(e)[:100]}")
 
-        progress_bar.progress(1.0, text="ãã¼ã¿çµ±åã»éè¤æé¤ä¸­...")
+        progress_bar.progress(1.0, text="データ統合・重複排除中...")
 
         # Merge and dedup
         if all_results:
@@ -239,31 +239,31 @@ with tab1:
             )
             st.session_state.analyzed_df = analyzed_df
 
-            progress_bar.progress(1.0, text="å®äºï¼")
+            progress_bar.progress(1.0, text="完了！")
             st.success(
-                f"æ¤ç´¢å®äºï¼ {total_found} ä»¶åå¾ â éè¤æé¤å¾ {len(merged)} ä»¶ "
-                f"(æ°æ³åææ¸ã¿)"
+                f"検索完了！ {total_found} 件取得 → 重複排除後 {len(merged)} 件 "
+                f"(民泊分析済み)"
             )
         else:
-            progress_bar.progress(1.0, text="å®äº")
-            st.warning("ç©ä»¶ãè¦ã¤ããã¾ããã§ãããæ¤ç´¢æ¡ä»¶ãå¤æ´ãã¦ã¿ã¦ãã ããã")
+            progress_bar.progress(1.0, text="完了")
+            st.warning("物件が見つかりませんでした。検索条件を変更してみてください。")
 
     # Display results
     if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
         df = st.session_state.analyzed_df
 
-        st.subheader(f"æ¤ç´¢çµæ: {len(df)} ä»¶")
+        st.subheader(f"検索結果: {len(df)} 件")
 
         # Sort options
         sort_col = st.selectbox(
-            "ä¸¦ã³æ¿ã",
+            "並び替え",
             ['minpaku_score', 'rent', 'area', 'roi_percent', 'net_monthly_profit'],
             format_func=lambda x: {
-                'minpaku_score': 'æ°æ³ã¹ã³ã¢ï¼é«ãé ï¼',
-                'rent': 'è³æï¼å®ãé ï¼',
-                'area': 'é¢ç©ï¼åºãé ï¼',
-                'roi_percent': 'ROIï¼é«ãé ï¼',
-                'net_monthly_profit': 'æéå©çï¼é«ãé ï¼',
+                'minpaku_score': '民泊スコア（高い順）',
+                'rent': '賃料（安い順）',
+                'area': '面積（広い順）',
+                'roi_percent': 'ROI（高い順）',
+                'net_monthly_profit': '月間利益（高い順）',
             }.get(x, x)
         )
 
@@ -280,21 +280,21 @@ with tab1:
         available_cols = [c for c in display_cols if c in display_df.columns]
 
         col_config = {
-            'minpaku_grade': st.column_config.TextColumn('è©ä¾¡', width='small'),
-            'minpaku_score': st.column_config.ProgressColumn('ã¹ã³ã¢', min_value=0, max_value=100),
-            'site': st.column_config.TextColumn('ãµã¤ã', width='small'),
-            'building_name': st.column_config.TextColumn('ç©ä»¶å'),
-            'address': st.column_config.TextColumn('ä½æ'),
-            'rent': st.column_config.NumberColumn('è³æ(ä¸å)', format="%.1fä¸å"),
-            'management_fee': st.column_config.NumberColumn('ç®¡çè²»(ä¸å)', format="%.2fä¸å"),
-            'layout': st.column_config.TextColumn('éåã', width='small'),
-            'area': st.column_config.NumberColumn('é¢ç©(ã¡)', format="%.1fã¡"),
-            'age': st.column_config.NumberColumn('ç¯å¹´æ°', format="%då¹´"),
-            'net_monthly_profit': st.column_config.NumberColumn('æéå©ç(å)', format="Â¥%,.0f"),
+            'minpaku_grade': st.column_config.TextColumn('評価', width='small'),
+            'minpaku_score': st.column_config.ProgressColumn('スコア', min_value=0, max_value=100),
+            'site': st.column_config.TextColumn('サイト', width='small'),
+            'building_name': st.column_config.TextColumn('物件名'),
+            'address': st.column_config.TextColumn('住所'),
+            'rent': st.column_config.NumberColumn('賃料(万円)', format="%.1f万円"),
+            'management_fee': st.column_config.NumberColumn('管理費(万円)', format="%.2f万円"),
+            'layout': st.column_config.TextColumn('間取り', width='small'),
+            'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
+            'age': st.column_config.NumberColumn('築年数', format="%d年"),
+            'net_monthly_profit': st.column_config.NumberColumn('月間利益(円)', format="¥%,.0f"),
             'roi_percent': st.column_config.NumberColumn('ROI', format="%.1f%%"),
-            'breakeven_months': st.column_config.NumberColumn('ååæé(æ)', format="%.1fã¶æ"),
-            'transport': st.column_config.TextColumn('äº¤é'),
-            'url': st.column_config.LinkColumn('ãªã³ã¯', width='small'),
+            'breakeven_months': st.column_config.NumberColumn('回収期間(月)', format="%.1fヶ月"),
+            'transport': st.column_config.TextColumn('交通'),
+            'url': st.column_config.LinkColumn('リンク', width='small'),
         }
 
         st.dataframe(
@@ -309,7 +309,7 @@ with tab1:
 # Tab 2: Analysis Dashboard
 # ========================================
 with tab2:
-    st.header("ð åæããã·ã¥ãã¼ã")
+    st.header("📊 分析ダッシュボード")
 
     if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
         df = st.session_state.analyzed_df
@@ -318,15 +318,15 @@ with tab2:
         # KPI Cards
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("ç·ç©ä»¶æ°", f"{stats.get('total_properties', 0)} ä»¶")
+            st.metric("総物件数", f"{stats.get('total_properties', 0)} 件")
         with col2:
-            st.metric("å¹³åè³æ", f"{stats.get('rent_avg', 0):.1f} ä¸å")
+            st.metric("平均賃料", f"{stats.get('rent_avg', 0):.1f} 万円")
         with col3:
-            st.metric("å¹³åæ°æ³ã¹ã³ã¢", f"{stats.get('avg_minpaku_score', 0):.0f} / 100")
+            st.metric("平均民泊スコア", f"{stats.get('avg_minpaku_score', 0):.0f} / 100")
         with col4:
             profitable = stats.get('profitable_count', 0)
             total = stats.get('total_properties', 1)
-            st.metric("é»å­ç©ä»¶æ¯ç", f"{profitable}/{total} ({profitable/total*100:.0f}%)")
+            st.metric("黒字物件比率", f"{profitable}/{total} ({profitable/total*100:.0f}%)")
 
         st.divider()
 
@@ -334,7 +334,7 @@ with tab2:
         col_chart1, col_chart2 = st.columns(2)
 
         with col_chart1:
-            st.subheader("ãµã¤ãå¥ç©ä»¶æ°")
+            st.subheader("サイト別物件数")
             if 'site' in df.columns:
                 site_counts = df['site'].value_counts()
                 fig = px.pie(values=site_counts.values, names=site_counts.index,
@@ -343,10 +343,10 @@ with tab2:
                 st.plotly_chart(fig, use_container_width=True)
 
         with col_chart2:
-            st.subheader("è³æåå¸")
+            st.subheader("賃料分布")
             if 'rent' in df.columns:
                 rent_data = df['rent'].dropna()
-                fig = px.histogram(rent_data, nbins=20, labels={'value': 'è³æ (ä¸å)', 'count': 'ä»¶æ°'},
+                fig = px.histogram(rent_data, nbins=20, labels={'value': '賃料 (万円)', 'count': '件数'},
                                    color_discrete_sequence=['#4CAF50'])
                 fig.update_layout(height=350, showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
@@ -354,33 +354,33 @@ with tab2:
         col_chart3, col_chart4 = st.columns(2)
 
         with col_chart3:
-            st.subheader("æ°æ³ã¹ã³ã¢åå¸")
+            st.subheader("民泊スコア分布")
             if 'minpaku_score' in df.columns:
                 fig = px.histogram(df, x='minpaku_score', nbins=20,
-                                   labels={'minpaku_score': 'ã¹ã³ã¢', 'count': 'ä»¶æ°'},
+                                   labels={'minpaku_score': 'スコア', 'count': '件数'},
                                    color_discrete_sequence=['#2196F3'])
                 fig.update_layout(height=350, showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
 
         with col_chart4:
-            st.subheader("è³æ vs é¢ç©")
+            st.subheader("賃料 vs 面積")
             if 'rent' in df.columns and 'area' in df.columns:
                 fig = px.scatter(df.dropna(subset=['rent', 'area']),
                                  x='area', y='rent',
                                  color='minpaku_grade' if 'minpaku_grade' in df.columns else None,
                                  hover_data=['building_name', 'layout'],
-                                 labels={'area': 'é¢ç© (ã¡)', 'rent': 'è³æ (ä¸å)'},
+                                 labels={'area': '面積 (㎡)', 'rent': '賃料 (万円)'},
                                  color_discrete_map={'S': '#FFD700', 'A': '#4CAF50',
                                                      'B': '#2196F3', 'C': '#FF9800', 'D': '#F44336'})
                 fig.update_layout(height=350)
                 st.plotly_chart(fig, use_container_width=True)
 
         # Profitability chart
-        st.subheader("æéå©çã©ã³ã­ã³ã° TOP 20")
+        st.subheader("月間利益ランキング TOP 20")
         if 'net_monthly_profit' in df.columns:
             top20 = df.nlargest(20, 'net_monthly_profit')
             labels = top20.apply(
-                lambda r: f"{r.get('building_name', 'ä¸æ')[:15]} ({r.get('layout', '')})", axis=1
+                lambda r: f"{r.get('building_name', '不明')[:15]} ({r.get('layout', '')})", axis=1
             )
             fig = go.Figure(go.Bar(
                 x=top20['net_monthly_profit'],
@@ -389,35 +389,35 @@ with tab2:
                 marker_color=top20['net_monthly_profit'].apply(
                     lambda x: '#4CAF50' if x > 0 else '#F44336'
                 ),
-                text=top20['net_monthly_profit'].apply(lambda x: f'Â¥{x:,.0f}'),
+                text=top20['net_monthly_profit'].apply(lambda x: f'¥{x:,.0f}'),
                 textposition='outside',
             ))
             fig.update_layout(height=max(400, len(top20) * 30), yaxis={'autorange': 'reversed'},
-                              xaxis_title='æéå©ç (å)', margin=dict(l=200))
+                              xaxis_title='月間利益 (円)', margin=dict(l=200))
             st.plotly_chart(fig, use_container_width=True)
 
         # Layout distribution
         if 'layout_dist' in stats:
-            st.subheader("éåãåå¸")
+            st.subheader("間取り分布")
             layout_dist = stats['layout_dist']
             fig = px.bar(x=list(layout_dist.keys()), y=list(layout_dist.values()),
-                         labels={'x': 'éåã', 'y': 'ä»¶æ°'},
+                         labels={'x': '間取り', 'y': '件数'},
                          color_discrete_sequence=['#9C27B0'])
             fig.update_layout(height=300)
             st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("ã¾ããç©ä»¶æ¤ç´¢ãã¿ãã§æ¤ç´¢ãå®è¡ãã¦ãã ããã")
+        st.info("まず「物件検索」タブで検索を実行してください。")
 
 
 # ========================================
 # Tab 3: Individual Property Evaluation
 # ========================================
 with tab3:
-    st.header("ðï¸ åå¥ç©ä»¶ã®æ°æ³é©æ§è©ä¾¡")
+    st.header("🏛️ 個別物件の民泊適性評価")
     st.caption(
-        "ç©ä»¶ã®è©³ç´°æå ±ãå¥åãã¦ãæ°æ³ï¼æé¤¨æ¥­æ³/æ°æ³æ°æ³ï¼ã§ã®å¶æ¥­é©æ§ãè©ä¾¡ãã¾ãã"
-        "èéåºæºã»ç¨éå°åã»å¨è¾ºæ½è¨­ã»å»ºç©è¦æ¨¡ã»æ¶é²è¨­åã®5ã¤ã®è¦³ç¹ã§ç·åè©ä¾¡ãè¡ãã¾ãã"
+        "物件の詳細情報を入力して、民泊（旅館業法/民泊新法）での営業適性を評価します。"
+        "耐震基準・用途地域・周辺施設・建物規模・消防設備の5つの観点で総合評価を行います。"
     )
 
     with st.form("eval_form"):
@@ -425,50 +425,38 @@ with tab3:
 
         with col1:
             eval_year_input = st.text_input(
-                "ç¯å¹´ææ¥",
-                placeholder="ä¾: 1985, æ­å60å¹´, å¹³æ5å¹´",
-                help="1981å¹´ï¼æ­å56å¹´ï¼6æä»¥éãªãæ°èéåºæº"
+                "築年月日",
+                placeholder="例: 1985, 昭和60年, 平成5年",
+                help="1981年（昭和56年）6月以降なら新耐震基準"
             )
             eval_yoto = st.selectbox(
-                "ç¨éå°å",
-                ['ä¸æ'] + GOOD_YOTO_CHIIKI + BAD_YOTO_CHIIKI + ['å·¥æ¥­å°å', 'å·¥æ¥­å°ç¨å°å'],
+                "用途地域",
+                ['不明'] + GOOD_YOTO_CHIIKI + BAD_YOTO_CHIIKI + ['工業地域', '工業専用地域'],
             )
             eval_shigaika = st.radio(
-                "å¸è¡åèª¿æ´åºåãï¼",
-                ['ä¸æ', 'ãããï¼å¸è¡ååºåç­ï¼', 'ã¯ãï¼èª¿æ´åºåï¼']
+                "市街化調整区域か？",
+                ['不明', 'いいえ（市街化区域等）', 'はい（調整区域）']
             )
 
         with col2:
             eval_school_dist = st.number_input(
-                "æå¯ãå­¦æ ¡ã»ä¿è²åã»å¬åããã®è·é¢ (m)",
+                "最寄り学校・保育園・公園からの距離 (m)",
                 min_value=0, value=0, step=10,
-                help="0ã®å ´åã¯ãä¸æãã¨ãã¦æ±ãã¾ã"
+                help="0の場合は「不明」として扱います"
             )
             eval_area = st.number_input(
-                "å»¶åºé¢ç© (ã¡)",
+                "延床面積 (㎡)",
                 min_value=0.0, value=0.0, step=5.0,
-                help="0ã®å ´åã¯ãä¸æãã¨ãã¦æ±ãã¾ã"
+                help="0の場合は「不明」として扱います"
             )
             eval_fire = st.radio(
-                "æ¶é²è¨­åã®æç¡",
-                ['ä¸æ', 'ãã', 'ãªã']
+                "消防設備の有無",
+                ['不明', 'あり', 'なし']
             )
 
-   ¾ã"
-            )
-            eval_area = st.number_input(
-                "å»¶åºé¢ç© (ã¡)",
-                min_value=0.0, value=0.0, step=5.0,
-                help="0ã®å ´åã¯ãä¸æãã¨ãã¦æ±ãã¾ã"
-            )
-            eval_fire = st.radio(
-                "æ¶é²è¨­åã®æç¡",
-                ['ä¸æ', 'ãã', 'ãªã']
-            )
+        eval_notes = st.text_area("その他の特記事項", placeholder="例: 駅から徒歩5分、駐車場あり")
 
-        eval_notes = st.text_area("ãã®ä»ã®ç¹è¨äºé ", placeholder="ä¾: é§ãã¹å¾æ­©5åãé§è»å ´ãã")
-
-        submitted = st.form_submit_button("ð è©ä¾¡å®è¡", type="primary")
+        submitted = st.form_submit_button("📋 評価実行", type="primary")
 
     if submitted:
         # Parse building year
@@ -480,16 +468,16 @@ with tab3:
             if year_str.isdigit():
                 building_year = int(year_str)
             else:
-                # æ­å
-                m = re.search(r'æ­å\s*(\d+)', year_str)
+                # 昭和
+                m = re.search(r'昭和\s*(\d+)', year_str)
                 if m:
                     building_year = 1925 + int(m.group(1))
-                # å¹³æ
-                m = re.search(r'å¹³æ\s*(\d+)', year_str)
+                # 平成
+                m = re.search(r'平成\s*(\d+)', year_str)
                 if m:
                     building_year = 1988 + int(m.group(1))
-                # ä»¤å
-                m = re.search(r'ä»¤å\s*(\d+)', year_str)
+                # 令和
+                m = re.search(r'令和\s*(\d+)', year_str)
                 if m:
                     building_year = 2018 + int(m.group(1))
                 # Just year number
@@ -497,19 +485,19 @@ with tab3:
                 if m and not building_year:
                     building_year = int(m.group(1))
 
-        yoto = eval_yoto if eval_yoto != 'ä¸æ' else None
+        yoto = eval_yoto if eval_yoto != '不明' else None
         shigaika = None
-        if eval_shigaika == 'ã¯ãï¼èª¿æ´åºåï¼':
+        if eval_shigaika == 'はい（調整区域）':
             shigaika = True
-        elif eval_shigaika == 'ãããï¼å¸è¡ååºåç­ï¼':
+        elif eval_shigaika == 'いいえ（市街化区域等）':
             shigaika = False
 
         school_dist = eval_school_dist if eval_school_dist > 0 else None
         floor_area = eval_area if eval_area > 0 else None
         fire_equip = None
-        if eval_fire == 'ãã':
+        if eval_fire == 'あり':
             fire_equip = True
-        elif eval_fire == 'ãªã':
+        elif eval_fire == 'なし':
             fire_equip = False
 
         result = evaluate_minpaku_property(
@@ -525,14 +513,14 @@ with tab3:
         # Display result
         st.divider()
 
-        grade_colors = {'S': 'ð¥', 'A': 'ð¢', 'B': 'ðµ', 'C': 'ð ', 'D': 'ð´'}
-        grade_icon = grade_colors.get(result['grade'], 'âª')
+        grade_colors = {'S': '🥇', 'A': '🟢', 'B': '🔵', 'C': '🟠', 'D': '🔴'}
+        grade_icon = grade_colors.get(result['grade'], '⚪')
 
         col_grade, col_score, col_summary = st.columns([1, 1, 3])
         with col_grade:
-            st.metric("ç·åè©ä¾¡", f"{grade_icon} {result['grade']}")
+            st.metric("総合評価", f"{grade_icon} {result['grade']}")
         with col_score:
-            st.metric("ã¹ã³ã¢", f"{result['score']} / 100")
+            st.metric("スコア", f"{result['score']} / 100")
         with col_summary:
             st.info(result['summary'])
 
@@ -540,23 +528,23 @@ with tab3:
 
         with col_left:
             if result['merits']:
-                st.subheader("â ã¡ãªãã")
+                st.subheader("✅ メリット")
                 for m in result['merits']:
                     st.success(m)
 
         with col_right:
             if result['risks']:
-                st.subheader("â ï¸ æ¸å¿µç¹ã»ãªã¹ã¯")
+                st.subheader("⚠️ 懵念点・リスク")
                 for r in result['risks']:
                     st.warning(r)
 
         if result['advice']:
-            st.subheader("ð¡ å°éå®¶ããã®ã¢ããã¤ã¹")
+            st.subheader("💡 専門家からのアドバイス")
             for a in result['advice']:
                 st.info(a)
 
         # Full text report
-        with st.expander("ð ãã­ã¹ãã¬ãã¼ãï¼ã³ãã¼ç¨ï¼"):
+        with st.expander("📄 テキストレポート（コピー用）"):
             st.code(format_evaluation_report(result), language=None)
 
 
@@ -564,7 +552,7 @@ with tab3:
 # Tab 4: Data Export
 # ========================================
 with tab4:
-    st.header("ð ãã¼ã¿ã¨ã¯ã¹ãã¼ã")
+    st.header("📋 データエクスポート")
 
     if st.session_state.analyzed_df is not None and not st.session_state.analyzed_df.empty:
         df = st.session_state.analyzed_df
@@ -572,7 +560,7 @@ with tab4:
         # Export columns selection
         all_cols = list(df.columns)
         export_cols = st.multiselect(
-            "ã¨ã¯ã¹ãã¼ãããåãé¸æ",
+            "エクスポートする列を選択",
             all_cols,
             default=[c for c in [
                 'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
@@ -589,7 +577,7 @@ with tab4:
                 # CSV Export
                 csv_data = export_df.to_csv(index=False, encoding='utf-8-sig')
                 st.download_button(
-                    "ð¥ CSVãã¦ã³ã­ã¼ã",
+                    "📥 CSVダウンロード",
                     csv_data,
                     file_name=f"minpaku_properties_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime='text/csv',
@@ -601,27 +589,27 @@ with tab4:
                 import io
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, index=False, sheet_name='ç©ä»¶ãªã¹ã')
+                    export_df.to_excel(writer, index=False, sheet_name='物件リスト')
 
                     # Add summary sheet
                     stats = generate_summary_stats(df)
                     summary_data = {
-                        'é ç®': list(stats.keys()),
-                        'å¤': [str(v) for v in stats.values()],
+                        '項目': list(stats.keys()),
+                        '値': [str(v) for v in stats.values()],
                     }
-                    pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name='ãµããªã¼')
+                    pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name='サマリー')
 
                 st.download_button(
-                    "ð¥ Excelãã¦ã³ã­ã¼ã",
+                    "📥 Excelダウンロード",
                     buffer.getvalue(),
                     file_name=f"minpaku_properties_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 )
 
-            st.subheader("ãã¬ãã¥ã¼")
+            st.subheader("プレビュー")
             st.dataframe(export_df, use_container_width=True, height=400)
     else:
-        st.info("ã¾ããç©ä»¶æ¤ç´¢ãã¿ãã§æ¤ç´¢ãå®è¡ãã¦ãã ããã")
+        st.info("まず「物件検索」タブで検索を実行してください。")
 
 
 # ========================================
@@ -629,7 +617,7 @@ with tab4:
 # ========================================
 st.divider()
 st.caption(
-    "â ï¸ ãã®ãã¼ã«ã¯åäººå©ç¨ã»å­¦ç¿ç®çã«éå®ããã¾ãã"
-    "åç¨åãå¤§è¦æ¨¡å©ç¨ãè¡ãå ´åã¯ãåãµã¤ãã®å¬å¼APIã¸ã®ç§»è¡ãæ¤è¨ãã¦ãã ããã"
-    f" | æçµæ´æ°: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    "⚠️ このツールは個人利用・学習目的に限定されます。"
+    "商用化や大規模利用を行う場合は、各サイトの公式APIへの移行を検討してください。"
+    f" | 最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 )
