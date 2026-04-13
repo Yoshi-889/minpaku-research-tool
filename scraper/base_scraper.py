@@ -20,7 +20,7 @@ class BaseScraper:
         'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
     }
 
-    def __init__(self, site_name: str):
+    def __init__(self, site_name: str = 'unknown', **kwargs):
         self.site_name = site_name
         self.logger = logging.getLogger(f'scraper.{site_name}')
         self.session = requests.Session()
