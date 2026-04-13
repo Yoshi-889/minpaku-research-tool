@@ -1,4 +1,4 @@
-"""Local real estate company scraper.
+阿蘇地域の不動産会社リスト（拡張可能）ハイトスコーポレーションハイトスコーポレーション阿蘇市阿蘇地域を中心とした不動産会社アパマンショップ光の森店アパマンショップ光の森店熊本県全般全国チェーン（熊本エリア）大東建託リーシング熊本中央店大東建託リーシング熊本県全般（大東建託）の賃貸物件明和不動産明和不動産熊本県全般熊本県を中心とした地域密着型不動産会社阿蘇市阿蘇万円熊本県²㎡管理費等円円新築築年阿蘇市万円阿蘇²㎡熊本県"""Local real estate company scraper.
 
 Scrapes individual real estate company websites in Aso area.
 User can select which local companies to include.
