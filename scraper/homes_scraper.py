@@ -4,7 +4,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
 
-from base_scraper import BaseScraper
+from .base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class HomesScraper(BaseScraper):
         '大分県': 'oita',
         '宮崎県': 'miyazaki',
         '鹿児島県': 'kagoshima',
-        '沖繄県': 'okinawa',
+        '沖縄県': 'okinawa',
     }
 
     def __init__(self, headless: bool = True, timeout: int = 10):
