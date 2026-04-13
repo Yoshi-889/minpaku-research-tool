@@ -6,6 +6,7 @@ Handles evaluation, metrics calculation, and report generation.
 import pandas as pd
 import re
 from typing import List, Dict, Optional, Tuple
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -165,7 +166,7 @@ def evaluate_minpaku_property(
     # Summary
     grade_desc = {
         'S': '民泊運営に非常に適した物件です。',
-        'A': '民泊運営に適した物件です。',
+        'A': '民泊運営に適灗た物件です。',
         'B': '民泊運営に利用可能な物件です。いくつかの課題に対応が必要です。',
         'C': '民泊運営には工夫が必要な物件です。課題を慎重に検討してください。',
         'D': '民泊運営には不向きな物件です。他の物件の検討をお勧めします。',
@@ -206,7 +207,7 @@ def format_evaluation_report(evaluation: Dict) -> str:
         lines.append("")
 
     if evaluation.get('risks'):
-        lines.append("【懸念点・リスク】")
+        lines.append("【懵念点・リスク】")
         for r in evaluation['risks']:
             lines.append(f"  ⚠️ {r}")
         lines.append("")
@@ -310,6 +311,124 @@ def calculate_minpaku_metrics(
 # Purchase Metrics
 # ========================================
 
+def _estimate_daily_rate(base_rate: int, prop: dict) -> int:
+    """
+    Estimate daily accommodation rate based on property characteristics.
+    Larger properties with more rooms can charge more per night.
+    """
+    area = prop.get('area', 0) or 0
+    layout = str(prop.get('layout', ''))
+
+    # Area-based multiplier: base_rate is for ~30m² (1-room)
+    # Scale up for larger properties, cap at 4x
+    if area > 0:
+        area_mult = max(1.0, min(area / 30.0, 4.0))
+    else:
+        area_mult = 1.0
+
+    # Layout-based adjustment
+    layout_mult = 1.0
+    if re.search(r'5[LDK]|6[LDK]|7[LDK]|8[LDK]', layout):
+        layout_mult = 2.0
+    elif re.search(r'4[LDK]', layout):
+        layout_mult = 1.7
+    elif re.search(r'3[LDK]', layout):
+        layout_mult = 1.4
+    elif re.search(r'2[LDK]', layout):
+        layout_mult = 1.2
+    elif re.search(r'1[LDK]|ワンルーム|1R', layout):
+        layout_mult = 1.0
+
+    # Use the larger of area or layout multiplier (avoid double-counting)
+    effective_mult = max(area_mult, layout_mult)
+
+    # Age discount: older properties get slight discount
+    age = prop.get('age', None)
+    if age is not None:
+        if age > 40:
+            effective_mult *= 0.7
+        elif age > 25:
+            effective_mult *= 0.8
+        elif age > 15:
+            effective_mult *= 0.9
+
+    return int(base_rate * effective_mult)
+
+
+def _calc_building_year(prop: dict) -> int:
+    """Calculate building year from age. Returns None if unknown."""
+    age = prop.get('age', None)
+    if age is not None and age >= 0:
+        return datetime.now().year - age
+    return None
+
+
+def _calc_purchase_minpaku_score(prop: dict, monthly_income: float, capitalization_rate: float) -> float:
+    """Calculate minpaku score for a purchase property (0-100)."""
+    score = 0.0
+
+    # Profitability - capitalization rate (30%)
+    if capitalization_rate >= 15:
+        score += 30
+    elif capitalization_rate >= 10:
+        score += 25
+    elif capitalization_rate >= 5:
+        score += 18
+    elif capitalization_rate > 0:
+        score += 10
+    else:
+        score += 0
+
+    # Area suitability (20%)
+    area = prop.get('area', 0) or 0
+    if 30 <= area <= 120:
+        score += 20
+    elif 20 <= area <= 200:
+        score += 14
+    elif area > 0:
+        score += 8
+
+    # Layout (15%)
+    layout = str(prop.get('layout', ''))
+    if re.search(r'2[LDK]|3[LDK]', layout):
+        score += 15
+    elif re.search(r'1[LDK]|ワンルーム|1R', layout):
+        score += 12
+    elif re.search(r'4[LDK]|5[LDK]', layout):
+        score += 10
+    elif layout:
+        score += 5
+
+    # Age / seismic safety (20%)
+    age = prop.get('age', None)
+    if age is not None:
+        if age <= 5:
+            score += 20
+        elif age <= 15:
+            score += 16
+        elif age <= 25:
+            score += 12
+        elif age <= 40:
+            score += 6
+        else:
+            score += 2
+
+    # Price efficiency (15%) — lower price = easier to recoup
+    price = prop.get('price', 0) or 0
+    if 0 < price <= 500:
+        score += 15
+    elif price <= 1000:
+        score += 12
+    elif price <= 2000:
+        score += 8
+    elif price <= 5000:
+        score += 5
+    elif price > 5000:
+        score += 2
+
+    return min(score, 100)
+
+
 def calculate_purchase_metrics(
     properties,
     daily_rate: int = 8000,
@@ -321,6 +440,8 @@ def calculate_purchase_metrics(
 ) -> pd.DataFrame:
     """
     Calculate metrics for PURCHASE properties.
+    daily_rate is the BASE rate per night for a ~30m² property.
+    Actual rate scales with area and layout.
     properties can be a list of dicts or a DataFrame.
     """
     if isinstance(properties, pd.DataFrame):
@@ -332,18 +453,28 @@ def calculate_purchase_metrics(
 
     results = []
     for prop in prop_list:
+        # Calculate building year from age
+        building_year = _calc_building_year(prop)
+        if building_year is not None:
+            prop['building_year'] = building_year
+
         price = prop.get('price', 0)
         if not price or price <= 0:
             row = dict(prop)
             row.update({
                 'monthly_income': 0, 'capitalization_rate': 0,
                 'net_yield': 0, 'breakeven_years': float('inf'),
+                'estimated_daily_rate': 0,
+                'minpaku_score': 0, 'minpaku_grade': 'D',
             })
             results.append(row)
             continue
 
+        # Estimate property-specific daily rate
+        prop_daily_rate = _estimate_daily_rate(daily_rate, prop)
+
         price_yen = price * 10000  # 万円 -> 円
-        annual_revenue = daily_rate * occupancy_rate * annual_days
+        annual_revenue = prop_daily_rate * occupancy_rate * annual_days
         annual_utilities = monthly_utilities * 12
         annual_mgmt = annual_revenue * management_rate
         annual_expenses = annual_utilities + annual_mgmt
@@ -354,12 +485,19 @@ def calculate_purchase_metrics(
         net_yield = (annual_profit / (price_yen + setup_cost) * 100) if (price_yen + setup_cost) > 0 else 0
         breakeven_years = price_yen / annual_profit if annual_profit > 0 else float('inf')
 
+        # Calculate minpaku score
+        score = _calc_purchase_minpaku_score(prop, monthly_income, capitalization_rate)
+        grade = _score_to_grade(score)
+
         row = dict(prop)
         row.update({
             'monthly_income': round(monthly_income),
             'capitalization_rate': round(capitalization_rate, 2),
             'net_yield': round(net_yield, 2),
             'breakeven_years': round(breakeven_years, 1) if breakeven_years != float('inf') else float('inf'),
+            'estimated_daily_rate': prop_daily_rate,
+            'minpaku_score': round(score, 1),
+            'minpaku_grade': grade,
         })
         results.append(row)
 
@@ -458,38 +596,3 @@ def generate_summary_stats(df: pd.DataFrame) -> Dict:
             'avg_minpaku_score': 0,
             'profitable_count': 0,
         }
-
-    stats = {
-        'total_properties': len(df),
-    }
-
-    # Rent average
-    if 'rent' in df.columns:
-        rent_valid = df['rent'].dropna()
-        if len(rent_valid) > 0:
-            stats['rent_avg'] = rent_valid.mean()
-
-    # Price average
-    if 'price' in df.columns:
-        price_valid = df['price'].dropna()
-        if len(price_valid) > 0:
-            stats['price_avg'] = price_valid.mean()
-
-    # Minpaku score
-    if 'minpaku_score' in df.columns:
-        stats['avg_minpaku_score'] = df['minpaku_score'].mean()
-
-    # Profitable count
-    if 'net_monthly_profit' in df.columns:
-        stats['profitable_count'] = int((df['net_monthly_profit'] > 0).sum())
-    elif 'monthly_income' in df.columns:
-        stats['profitable_count'] = int((df['monthly_income'] > 0).sum())
-    else:
-        stats['profitable_count'] = 0
-
-    # Layout distribution
-    if 'layout' in df.columns:
-        layout_counts = df['layout'].value_counts().head(10).to_dict()
-        stats['layout_dist'] = layout_counts
-
-    return stats
