@@ -1,133 +1,136 @@
-"""Base scraper class with common functionality."""
+"""Base scraper class with shared HTTP/parsing utilities."""
 import requests
 from bs4 import BeautifulSoup
-import time
 import logging
-import random
+import re
+import time
+from typing import Optional
 from datetime import datetime
-from typing import List, Dict, Optional
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
 class BaseScraper:
-    """Base class for all real estate scrapers."""
+    """Base class for all real estate site scrapers."""
 
     HEADERS = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/120.0.0.0 Safari/537.36'
+        ),
+        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
     }
 
     def __init__(self, site_name: str):
         self.site_name = site_name
-        self.logger = logging.getLogger(site_name)
+        self.logger = logging.getLogger(f'scraper.{site_name}')
         self.session = requests.Session()
         self.session.headers.update(self.HEADERS)
-        self.request_count = 0
-        self.max_requests_per_session = 200
-        self.min_delay = 2.0
-        self.max_delay = 4.0
 
-    def _wait(self):
-        """Wait between requests to be polite."""
-        delay = random.uniform(self.min_delay, self.max_delay)
-        time.sleep(delay)
-
-    def _fetch_page(self, url: str, retry_count: int = 3) -> Optional[BeautifulSoup]:
-        """Fetch a page and return BeautifulSoup object."""
-        if self.request_count >= self.max_requests_per_session:
-            self.logger.warning("Maximum request limit reached for this session.")
-            return None
-
-        for attempt in range(retry_count):
+    def _fetch_page(self, url: str, retry: int = 2) -> Optional[BeautifulSoup]:
+        """Fetch page and return BeautifulSoup object."""
+        for attempt in range(retry + 1):
             try:
-                self._wait()
-                self.logger.info(f"Fetching: {url} (attempt {attempt + 1})")
-                response = self.session.get(url, timeout=30)
-                response.raise_for_status()
-                self.request_count += 1
-
-                # Detect encoding
-                if response.encoding and response.encoding.lower() != 'utf-8':
-                    response.encoding = response.apparent_encoding
-
-                return BeautifulSoup(response.text, 'lxml')
-
-            except requests.exceptions.RequestException as e:
-                self.logger.error(f"Request error (attempt {attempt + 1}): {e}")
-                if attempt < retry_count - 1:
-                    time.sleep(5 * (attempt + 1))
-                else:
-                    self.logger.error(f"Failed to fetch {url} after {retry_count} attempts")
-                    return None
-
-    def scrape(self, conditions: Dict) -> List[Dict]:
-        """Override in subclass. Scrape properties matching conditions."""
-        raise NotImplementedError
-
-    def _parse_price(self, text: str) -> Optional[float]:
-        """Parse Japanese price text to float (in 万円)."""
-        if not text:
-            return None
-        import re
-        text = text.strip().replace(',', '').replace('　', '')
-        # Match patterns like "6.9万円" or "69000円"
-        match = re.search(r'([\d.]+)\s*万円', text)
-        if match:
-            return float(match.group(1))
-        match = re.search(r'([\d,]+)\s*円', text)
-        if match:
-            return float(match.group(1).replace(',', '')) / 10000
+                resp = self.session.get(url, timeout=15)
+                resp.raise_for_status()
+                resp.encoding = resp.apparent_encoding or 'utf-8'
+                return BeautifulSoup(resp.text, 'html.parser')
+            except Exception as e:
+                self.logger.warning(f"Fetch error ({attempt+1}/{retry+1}): {url} - {e}")
+                if attempt < retry:
+                    time.sleep(2)
         return None
 
-    def _parse_area(self, text: str) -> Optional[float]:
-        """Parse area text to float (in m²)."""
+    def _parse_price(self, text: str) -> Optional[float]:
+        """万円 to float (万円 unit)."""
         if not text:
             return None
-        import re
-        text = text.strip()
-        match = re.search(r'([\d.]+)\s*m', text)
-        if match:
-            return float(match.group(1))
+        m = re.search(r'([\d,.]+)\s*万円', text)
+        if m:
+            return float(m.group(1).replace(',', ''))
+        m = re.search(r'([\d,]+)\s*円', text)
+        if m:
+            return float(m.group(1).replace(',', '')) / 10000
+        return None
+
+    def _parse_price_yen(self, text: str) -> Optional[float]:
+        """Parse purchase price: handles 億円 and 万円."""
+        if not text:
+            return None
+        total = 0.0
+        m_oku = re.search(r'([\d,.]+)\s*億', text)
+        if m_oku:
+            total += float(m_oku.group(1).replace(',', '')) * 10000
+        m_man = re.search(r'([\d,.]+)\s*万', text)
+        if m_man:
+            total += float(m_man.group(1).replace(',', ''))
+        if total > 0:
+            return total
+        return self._parse_price(text)
+
+    def _parse_area(self, text: str) -> Optional[float]:
+        """Parse area in m2."""
+        if not text:
+            return None
+        m = re.search(r'([\d.]+)\s*m[²㎡]', text)
+        if m:
+            return float(m.group(1))
         return None
 
     def _parse_age(self, text: str) -> Optional[int]:
-        """Parse building age text to int (years)."""
+        """Parse building age from text like 築5年 or 新築."""
         if not text:
             return None
-        import re
-        text = text.strip()
         if '新築' in text:
             return 0
-        match = re.search(r'築?(\d+)\s*年', text)
-        if match:
-            return int(match.group(1))
+        m = re.search(r'築(\d+)年', text)
+        if m:
+            return int(m.group(1))
         return None
 
     def _parse_walk_minutes(self, text: str) -> Optional[int]:
-        """Parse walk minutes from transport text."""
+        """Parse walk minutes from text like 徒歩5分."""
         if not text:
             return None
-        import re
-        match = re.search(r'歩\s*(\d+)\s*分', text)
-        if match:
-            return int(match.group(1))
-        match = re.search(r'徒歩\s*(\d+)\s*分', text)
-        if match:
-            return int(match.group(1))
+        m = re.search(r'徒歩(\d+)分', text)
+        if m:
+            return int(m.group(1))
         return None
 
-    def _normalize_address(self, address: str) -> str:
-        """Normalize address for dedup purposes."""
-        if not address:
-            return ""
-        import re
-        # Full-width to half-width numbers
-        table = str.maketrans('０１２３４５６７８９', '0123456789')
-        address = address.translate(table)
-        # Remove spaces
-        address = re.sub(r'\s+', '', address)
-        return address
+    def _normalize_address(self, text: str) -> str:
+        """Normalize Japanese address."""
+        if not text:
+            return ''
+        text = re.sub(r'\s+', '', text.strip())
+        return text
+
+    def _make_property_dict(self, **kwargs):
+        """Create standardized property dict with all fields."""
+        base = {
+            'site': self.site_name,
+            'listing_type': kwargs.get('listing_type', 'rental'),
+            'building_name': '',
+            'address': '',
+            'transport': '',
+            'rent': None,
+            'price': None,
+            'management_fee': None,
+            'deposit': '',
+            'key_money': '',
+            'layout': '',
+            'area': None,
+            'land_area': None,
+            'age': None,
+            'age_text': '',
+            'floor': '',
+            'walk_minutes': None,
+            'url': '',
+            'published_date': '',
+            'next_update_date': '',
+            'nearest_school_distance': None,
+            'city_planning': '',
+            'zoning': '',
+            'land_category': '',
+            'scraped_at': datetime.now().isoformat(),
+        }
+        base.update(kwargs)
+        return base
