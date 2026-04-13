@@ -13,13 +13,13 @@ def normalize_address(address: str) -> str:
         return ""
     # Full-width to half-width
     table = str.maketrans(
-        'ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼ï¼¡ï¼¢ï¼£ï¼¤ï¼¥ï¼¦ï¼§ï¼¨ï¼©ï¼ªï¼«ï¼¬ï¼­ï¼®ï¼¯ï¼°ï¼±ï¼²ï¼³ï¼´ï¼µï¼¶ï¼·ï¼¸ï¼¹ï¼ºï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½ï½',
+        '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ',
         '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     )
     address = address.translate(table)
-    address = re.sub(r'[\sã]+', '', address)
+    address = re.sub(r'[\s　]+', '', address)
     # Remove common suffixes
-    address = re.sub(r'çªå°?$', '', address)
+    address = re.sub(r'番地?$', '', address)
     return address
 
 
@@ -28,8 +28,8 @@ def remove_duplicates(properties: List[Dict], rent_tolerance: float = 0.05,
     """Remove duplicate properties across sites.
 
     Dedup logic:
-    - Same normalized address AND same layout â likely same property
-    - Same building name AND similar rent (Â±5%) AND similar area (Â±2ã¡) â likely same
+    - Same normalized address AND same layout → likely same property
+    - Same building name AND similar rent (±5%) AND similar area (±2㎡) → likely same
     """
     if not properties:
         return []
@@ -37,7 +37,7 @@ def remove_duplicates(properties: List[Dict], rent_tolerance: float = 0.05,
     df = pd.DataFrame(properties)
     df['_norm_addr'] = df['address'].apply(normalize_address)
     df['_norm_name'] = df['building_name'].apply(
-        lambda x: re.sub(r'[\sã\u3000]+', '', str(x).lower()) if x else ''
+        lambda x: re.sub(r'[\s　\u3000]+', '', str(x).lower()) if x else ''
     )
 
     # Mark duplicates
@@ -58,8 +58,8 @@ def remove_duplicates(properties: List[Dict], rent_tolerance: float = 0.05,
         # Key 2: Building name + approximate rent + approximate area
         key2 = None
         if name and rent:
-            rent_rounded = round(rent * 2) / 2  # Round to 0.5ä¸å
-            area_rounded = round(area / 5) * 5 if area else 0  # Round to 5ã¡
+            rent_rounded = round(rent * 2) / 2  # Round to 0.5万円
+            area_rounded = round(area / 5) * 5 if area else 0  # Round to 5㎡
             key2 = f"{name}_{rent_rounded}_{area_rounded}"
 
         is_dup = False
@@ -76,7 +76,7 @@ def remove_duplicates(properties: List[Dict], rent_tolerance: float = 0.05,
                 seen.add(key2)
 
     result_df = df.loc[keep_indices].drop(columns=['_norm_addr', '_norm_name'])
-    logger.info(f"Deduplication: {len(properties)} â {len(result_df)} properties "
+    logger.info(f"Deduplication: {len(properties)} → {len(result_df)} properties "
                 f"({len(properties) - len(result_df)} duplicates removed)")
 
     return result_df.to_dict('records')
