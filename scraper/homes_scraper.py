@@ -1,289 +1,566 @@
-"""LIFULL HOME'S scraper for rental properties."""
-import re
-from typing import List, Dict, Optional
+import logging
+from typing import Dict, List, Optional
 from datetime import datetime
-from .base_scraper import BaseScraper
+from bs4 import BeautifulSoup
+import requests
+
+from base_scraper import BaseScraper
+
+logger = logging.getLogger(__name__)
 
 
 class HomesScraper(BaseScraper):
-    """Scraper for LIFULL HOME'S rental property listings."""
+    """
+    Scraper for LIFULL HOME'S real estate portal.
+    Supports both rental (chintai) and purchase (kodate) modes for all 47 prefectures.
+    """
 
+    BASE_URL = "https://www.homes.co.jp"
+
+    # All 47 Japanese prefectures with URL path segments
     PREFECTURE_PATHS = {
-        '北海道': 'hokkaido', '青森県': 'aomori', '岩手県': 'iwate', '宮城県': 'miyagi',
-        '秋田県': 'akita', '山形県': 'yamagata', '福島県': 'fukushima', '茨城県': 'ibaraki',
-        '栃木県': 'tochigi', '群馬県': 'gunma', '埼玉県': 'saitama', '千葉県': 'chiba',
-        '東京都': 'tokyo', '神奈川県': 'kanagawa', '新潟県': 'niigata', '富山県': 'toyama',
-        '石川県': 'ishikawa', '福井県': 'fukui', '山梨県': 'yamanashi', '長野県': 'nagano',
-        '岐阜県': 'gifu', '静岡県': 'shizuoka', '愛知県': 'aichi', '三重県': 'mie',
-        '滋賀県': 'shiga', '京都府': 'kyoto', '大阪府': 'osaka', '兵庫県': 'hyogo',
-        '奈良県': 'nara', '和歌山県': 'wakayama', '鳥取県': 'tottori', '島根県': 'shimane',
-        '岡山県': 'okayama', '広島県': 'hiroshima', '山口県': 'yamaguchi', '徳島県': 'tokushima',
-        '香川県': 'kagawa', '愛媛県': 'ehime', '高知県': 'kochi', '福岡県': 'fukuoka',
-        '佐賀県': 'saga', '長崎県': 'nagasaki', '熊本県': 'kumamoto', '大分県': 'oita',
-        '宮崎県': 'miyazaki', '鹿児島県': 'kagoshima', '沖縄県': 'okinawa',
+        '北海道': 'hokkaido',
+        '青森県': 'aomori',
+        '岩手県': 'iwate',
+        '宮城県': 'miyagi',
+        '秋田県': 'akita',
+        '山形県': 'yamagata',
+        '福島県': 'fukushima',
+        '茨城県': 'ibaraki',
+        '栃木県': 'tochigi',
+        '群馬県': 'gunma',
+        '埼玉県': 'saitama',
+        '千葉県': 'chiba',
+        '東京都': 'tokyo',
+        '神奈川県': 'kanagawa',
+        '新潟県': 'niigata',
+        '富山県': 'toyama',
+        '石川県': 'ishikawa',
+        '福井県': 'fukui',
+        '山梨県': 'yamanashi',
+        '長野県': 'nagano',
+        '岐阜県': 'gifu',
+        '静岡県': 'shizuoka',
+        '愛知県': 'aichi',
+        '三重県': 'mie',
+        '滋賀県': 'shiga',
+        '京都府': 'kyoto',
+        '大阪府': 'osaka',
+        '兵庫県': 'hyogo',
+        '奈良県': 'nara',
+        '和歌山県': 'wakayama',
+        '鳥取県': 'tottori',
+        '島根県': 'shimane',
+        '岡山県': 'okayama',
+        '広島県': 'hiroshima',
+        '山口県': 'yamaguchi',
+        '徳島県': 'tokushima',
+        '香川県': 'kagawa',
+        '愛媛県': 'ehime',
+        '高知県': 'kochi',
+        '福岡県': 'fukuoka',
+        '佐賀県': 'saga',
+        '長崎県': 'nagasaki',
+        '熊本県': 'kumamoto',
+        '大分県': 'oita',
+        '宮崎県': 'miyazaki',
+        '鹿児島県': 'kagoshima',
+        '沖繄県': 'okinawa',
     }
 
-    def __init__(self):
-        super().__init__("LIFULL HOME'S")
-        self.base_url = 'https://www.homes.co.jp'
+    def __init__(self, headless: bool = True, timeout: int = 10):
+        """Initialize the LIFULL HOME'S scraper."""
+        super().__init__(headless=headless, timeout=timeout)
+        self.site_name = "LIFULL HOME'S"
 
-    def _build_search_url(self, conditions: Dict, page: int = 1) -> str:
-        """Build HOME'S search URL."""
-        prefecture = conditions.get('prefecture', '東京都')
-        city = conditions.get('city', '')
+    def _get_prefecture_path(self, prefecture: str) -> str:
+        """
+        Get URL path segment for given prefecture.
 
-        pref_path = self.PREFECTURE_PATHS.get(prefecture, 'tokyo')
+        Args:
+            prefecture: Prefecture name in Japanese (e.g., '東京都')
 
-        # Build URL - prefecture-level search by default
-        url = f'{self.base_url}/chintai/{pref_path}/list/'
+        Returns:
+            URL path segment (e.g., 'tokyo')
 
-        params = []
-        if conditions.get('rent_min'):
-            params.append(f"priceMin={int(float(conditions['rent_min']) * 10000)}")
-        if conditions.get('rent_max'):
-            params.append(f"priceMax={int(float(conditions['rent_max']) * 10000)}")
-        if conditions.get('area_min'):
-            params.append(f"areaMin={conditions['area_min']}")
+        Raises:
+            ValueError: If prefecture not found
+        """
+        if prefecture not in self.PREFECTURE_PATHS:
+            raise ValueError(
+                f"Prefecture '{prefecture}' not found. "
+                f"Valid prefectures: {', '.join(self.PREFECTURE_PATHS.keys())}"
+            )
+        return self.PREFECTURE_PATHS[prefecture]
 
-        # Add city keyword search if specified
-        if city and city.strip():
-            params.append(f"key={city.strip()}")
+    def _build_search_url(
+        self,
+        conditions: Dict,
+        mode: str = 'rental',
+        page: int = 1
+    ) -> str:
+        """
+        Build search URL for rental or purchase mode.
 
+        Args:
+            conditions: Search conditions dict with 'prefecture' and optionally 'keyword'
+            mode: 'rental' or 'purchase'
+            page: Page number (1-indexed)
+
+        Returns:
+            Full search URL with query parameters
+
+        Raises:
+            ValueError: If mode is invalid or required conditions missing
+        """
+        if mode not in ['rental', 'purchase']:
+            raise ValueError(f"Mode must be 'rental' or 'purchase', got '{mode}'")
+
+        if 'prefecture' not in conditions:
+            raise ValueError("'prefecture' is required in conditions")
+
+        pref_path = self._get_prefecture_path(conditions['prefecture'])
+
+        # Build base URL based on mode
+        if mode == 'rental':
+            url = f"{self.BASE_URL}/chintai/{pref_path}/list/"
+        else:  # purchase
+            url = f"{self.BASE_URL}/kodate/b-{pref_path}/list/"
+
+        # Add keyword if provided
+        params = {}
+        if 'keyword' in conditions and conditions['keyword']:
+            params['key'] = conditions['keyword']
+
+        # Add page parameter if not first page
         if page > 1:
-            params.append(f"page={page}")
+            params['page'] = page
 
+        # Build query string
         if params:
-            url += '?' + '&'.join(params)
+            query_string = '&'.join(f"{k}={v}" for k, v in params.items())
+            url = f"{url}?{query_string}"
 
         return url
 
-    def scrape(self, conditions: Dict) -> List[Dict]:
-        """Scrape HOME'S rental listings."""
-        all_properties = []
+    def scrape(self, conditions: Dict, mode: str = 'rental') -> List[Dict]:
+        """
+        Scrape real estate listings from LIFULL HOME'S.
+
+        Args:
+            conditions: Search conditions with 'prefecture' and optional 'keyword'
+            mode: 'rental' or 'purchase' (default: 'rental')
+
+        Returns:
+            List of property dictionaries with standardized fields
+
+        Raises:
+            ValueError: If invalid mode or missing required conditions
+        """
+        if mode not in ['rental', 'purchase']:
+            raise ValueError(f"Mode must be 'rental' or 'purchase', got '{mode}'")
+
+        listings = []
         page = 1
         max_pages = conditions.get('max_pages', 5)
 
-        while page <= max_pages:
-            url = self._build_search_url(conditions, page)
-            soup = self._fetch_page(url)
-
-            if soup is None:
-                break
-
-            # Find property modules
-            modules = soup.select('.mod-mergeBuilding')
-            if not modules:
-                modules = soup.select('[class*="mod-mergeBuilding"]')
-            if not modules:
-                # Try alternative: individual property cards
-                modules = soup.select('.prg-building')
-
-            if not modules:
-                self.logger.info(f"No more properties found on page {page}")
-                break
-
-            self.logger.info(f"Found {len(modules)} buildings on page {page}")
-
-            for module in modules:
-                properties = self._parse_building(module)
-                all_properties.extend(properties)
-
-            # Check for next page
-            next_link = soup.select_one('.pagination a[rel="next"]')
-            if not next_link:
-                next_link = soup.select_one('a.nextPage')
-            if not next_link:
-                # Also check text-based pagination
-                pagers = soup.select('.mod-pagination a')
-                has_next = False
-                for p in pagers:
-                    if '次へ' in p.get_text():
-                        has_next = True
-                        break
-                if not has_next:
-                    break
-            page += 1
-
-        self.logger.info(f"Total properties scraped from HOME'S: {len(all_properties)}")
-        return all_properties
-
-    def _parse_building(self, module) -> List[Dict]:
-        """Parse a building module into property listings."""
-        properties = []
-
-        # Building name
-        building_name = ''
-        name_el = module.select_one('.prg-buildingName, .bukkenName, h2 a, h3 a')
-        if name_el:
-            building_name = name_el.get_text(strip=True)
-
-        # Address
-        address = ''
-        addr_el = module.select_one('.prg-address, [class*="address"]')
-        if addr_el:
-            address = addr_el.get_text(strip=True)
-        else:
-            # Try to find from text content
-            text = module.get_text()
-            match = re.search(r'所在地\s*(.+?[都道府県].+?[市区町村郡].+?)[\s\n]', text)
-            if match:
-                address = match.group(1).strip()
-
-        # Transport
-        transport = ''
-        transport_el = module.select_one('.prg-route, [class*="traffic"], [class*="transport"]')
-        if transport_el:
-            transport = transport_el.get_text(strip=True)
-        else:
-            text = module.get_text()
-            match = re.search(r'交通\s*([^\s築年]+)', text)
-            if match:
-                transport = match.group(1).strip()
-
-        # Age
-        age_text = ''
-        age_el = module.select_one('.prg-age, [class*="age"]')
-        if age_el:
-            age_text = age_el.get_text(strip=True)
-        else:
-            text = module.get_text()
-            match = re.search(r'築年数/階数\s*([^\s間]+)', text)
-            if match:
-                age_text = match.group(1).strip()
-
-        # Parse individual rooms
-        room_rows = module.select('table tbody tr')
-        if not room_rows:
-            room_rows = module.select('.prg-roomTable tr, .mod-roomList tr')
-
-        for row in room_rows:
-            prop = self._parse_room(row, building_name, address, transport, age_text)
-            if prop and prop.get('rent'):
-                properties.append(prop)
-
-        # If no room rows, try to parse the module as a whole
-        if not properties:
-            text = module.get_text()
-            # Try extracting rent from text
-            rent_match = re.search(r'([\d.]+)\s*万円', text)
-            if rent_match and building_name:
-                # Management fee
-                mgmt_match = re.search(r'/\s*([\d,]+)\s*円', text)
-                mgmt_fee = None
-                if mgmt_match:
-                    mgmt_fee = float(mgmt_match.group(1).replace(',', '')) / 10000
-
-                # Area
-                area_match = re.search(r'([\d.]+)\s*m²', text)
-                area = float(area_match.group(1)) if area_match else None
-
-                # Layout
-                layout_match = re.search(r'(\d[LDKS]{1,4})', text)
-                layout = layout_match.group(1) if layout_match else ''
-
-                prop = {
-                    'site': "LIFULL HOME'S",
-                    'building_name': building_name,
-                    'address': address,
-                    'transport': transport,
-                    'rent': float(rent_match.group(1)),
-                    'management_fee': mgmt_fee,
-                    'deposit': '',
-                    'key_money': '',
-                    'layout': layout,
-                    'area': area,
-                    'age': self._parse_age(age_text),
-                    'age_text': age_text,
-                    'floor': '',
-                    'walk_minutes': self._parse_walk_minutes(transport),
-                    'url': '',
-                    'scraped_at': datetime.now().isoformat(),
-                }
-                properties.append(prop)
-
-        return properties
-
-    def _parse_room(self, row, building_name: str, address: str,
-                    transport: str, age_text: str) -> Optional[Dict]:
-        """Parse a room row."""
         try:
-            cells = row.select('td')
-            if len(cells) < 4:
-                return None
+            while page <= max_pages:
+                url = self._build_search_url(conditions, mode, page)
+                logger.info(f"Scraping {mode} listings from: {url}")
 
-            text = row.get_text()
+                try:
+                    response = requests.get(
+                        url,
+                        headers=self.headers,
+                        timeout=self.timeout
+                    )
+                    response.raise_for_status()
+                except requests.RequestException as e:
+                    logger.error(f"Failed to fetch page {page}: {e}")
+                    break
 
-            # Rent
-            rent = None
-            rent_match = re.search(r'([\d.]+)\s*万円', text)
-            if rent_match:
-                rent = float(rent_match.group(1))
+                soup = BeautifulSoup(response.content, 'html.parser')
 
-            if not rent:
-                return None
+                # Parse listings based on mode
+                if mode == 'rental':
+                    page_listings = self._scrape_rental_page(soup, conditions)
+                else:
+                    page_listings = self._scrape_purchase_page(soup, conditions)
 
-            # Management fee
-            mgmt_fee = None
-            mgmt_match = re.search(r'/\s*([\d,]+)\s*円', text)
-            if mgmt_match:
-                mgmt_fee = float(mgmt_match.group(1).replace(',', '')) / 10000
+                if not page_listings:
+                    logger.info(f"No listings found on page {page}, stopping.")
+                    break
 
-            # Area
-            area = None
-            area_match = re.search(r'([\d.]+)\s*m²', text)
-            if area_match:
-                area = float(area_match.group(1))
+                listings.extend(page_listings)
+                logger.info(f"Found {len(page_listings)} listings on page {page}")
 
-            # Layout
-            layout = ''
-            layout_match = re.search(r'(\d[LDKS]{1,4})', text)
-            if layout_match:
-                layout = layout_match.group(1)
+                page += 1
 
-            # Floor
-            floor = ''
-            floor_match = re.search(r'(\d+)\s*階', text)
-            if floor_match:
-                floor = floor_match.group(0)
-
-            # Deposit / Key money
-            deposit = ''
-            key_money = ''
-            dep_match = re.search(r'敷金[/:]?\s*([\d.]+万円|無)', text)
-            if dep_match:
-                deposit = dep_match.group(1)
-            key_match = re.search(r'礼金[/:]?\s*([\d.]+万円|無|\d+ヶ月)', text)
-            if key_match:
-                key_money = key_match.group(1)
-
-            # URL
-            url = ''
-            link = row.select_one('a[href]')
-            if link:
-                href = link.get('href', '')
-                if href.startswith('/'):
-                    url = self.base_url + href
-                elif href.startswith('http'):
-                    url = href
-
-            return {
-                'site': "LIFULL HOME'S",
-                'building_name': building_name,
-                'address': address,
-                'transport': transport,
-                'rent': rent,
-                'management_fee': mgmt_fee,
-                'deposit': deposit,
-                'key_money': key_money,
-                'layout': layout,
-                'area': area,
-                'age': self._parse_age(age_text),
-                'age_text': age_text,
-                'floor': floor,
-                'walk_minutes': self._parse_walk_minutes(transport),
-                'url': url,
-                'scraped_at': datetime.now().isoformat(),
-            }
         except Exception as e:
-            self.logger.error(f"Error parsing room: {e}")
+            logger.error(f"Error during scraping: {e}")
+
+        logger.info(f"Total listings scraped: {len(listings)}")
+        return listings
+
+    def _scrape_rental_page(self, soup: BeautifulSoup, conditions: Dict) -> List[Dict]:
+        """
+        Parse rental listings from page soup.
+
+        Args:
+            soup: BeautifulSoup object of rental listings page
+            conditions: Search conditions
+
+        Returns:
+            List of rental property dictionaries
+        """
+        listings = []
+
+        # Find building blocks (typically contain multiple rooms)
+        building_elements = soup.find_all('div', class_='bukkenbox')
+
+        for building_el in building_elements:
+            try:
+                building_info = self._parse_rental_building(building_el)
+                if not building_info:
+                    continue
+
+                # Find room elements within building
+                room_elements = building_el.find_all('div', class_='heyadiv')
+
+                if room_elements:
+                    # Multiple rooms in one building
+                    for room_el in room_elements:
+                        try:
+                            room_data = self._parse_rental_room(room_el, building_info)
+                            if room_data:
+                                listings.append(room_data)
+                        except Exception as e:
+                            logger.warning(f"Error parsing rental room: {e}")
+                else:
+                    # No separate room elements, treat building as single listing
+                    listings.append(building_info)
+
+            except Exception as e:
+                logger.warning(f"Error parsing rental building: {e}")
+
+        return listings
+
+    def _parse_rental_building(self, building_el) -> Optional[Dict]:
+        """
+        Parse rental building/property information.
+
+        Args:
+            building_el: BeautifulSoup element for building
+
+        Returns:
+            Dictionary with building information or None if parsing fails
+        """
+        try:
+            # Extract building name
+            name_el = building_el.find('a', class_='bukkenname')
+            if not name_el:
+                return None
+
+            name = name_el.get_text(strip=True)
+
+            # Extract address
+            address_el = building_el.find('span', class_='address')
+            address = address_el.get_text(strip=True) if address_el else None
+
+            # Extract building details
+            details_el = building_el.find('div', class_='gaiyou')
+            building_type = None
+            age = None
+            layout = None
+
+            if details_el:
+                details_text = details_el.get_text()
+                # Try to extract building type, age, layout from details
+                # Format may vary, this is a best-effort extraction
+                parts = [p.strip() for p in details_text.split('・')]
+                if len(parts) > 0:
+                    building_type = parts[0]
+                if len(parts) > 1:
+                    age = parts[1]
+                if len(parts) > 2:
+                    layout = parts[2]
+
+            # Extract image URL
+            img_el = building_el.find('img', class_='bukkenphoto')
+            image_url = img_el.get('src') if img_el else None
+
+            building_info = {
+                'name': name,
+                'address': address,
+                'building_type': building_type,
+                'age': age,
+                'layout': layout,
+                'image_url': image_url,
+            }
+
+            return building_info
+
+        except Exception as e:
+            logger.warning(f"Error parsing rental building details: {e}")
             return None
+
+    def _parse_rental_room(self, room_el, building_info: Dict) -> Optional[Dict]:
+        """
+        Parse rental room information.
+
+        Args:
+            room_el: BeautifulSoup element for room
+            building_info: Building information dictionary
+
+        Returns:
+            Standardized property dictionary or None if parsing fails
+        """
+        try:
+            # Extract room details (price, floor, etc.)
+            price_el = room_el.find('span', class_='yachin')
+            price_text = price_el.get_text(strip=True) if price_el else None
+            price = self._parse_price(price_text)
+
+            # Extract room layout/spec
+            spec_el = room_el.find('span', class_='madori')
+            layout = spec_el.get_text(strip=True) if spec_el else building_info.get('layout')
+
+            # Extract floor info
+            floor_el = room_el.find('span', class_='kai')
+            floor = floor_el.get_text(strip=True) if floor_el else None
+
+            # Extract area
+            area_el = room_el.find('span', class_='menseki')
+            area_text = area_el.get_text(strip=True) if area_el else None
+            area = self._parse_area(area_text)
+
+            # Extract nearest station info
+            station_el = room_el.find('span', class_='station')
+            nearest_station = None
+            nearest_station_distance = None
+
+            if station_el:
+                station_text = station_el.get_text(strip=True)
+                # Parse station name and distance (e.g., "渋谷駅 徒歩5分")
+                parts = station_text.split()
+                if len(parts) >= 1:
+                    nearest_station = parts[0]
+                if len(parts) >= 2:
+                    nearest_station_distance = parts[1]
+
+            property_dict = self._make_property_dict(
+                url=room_el.find('a').get('href') if room_el.find('a') else None,
+                title=building_info.get('name'),
+                address=building_info.get('address'),
+                price=price,
+                price_unit='万円' if price else None,
+                layout=layout,
+                area_sqm=area,
+                building_type=building_info.get('building_type'),
+                age=building_info.get('age'),
+                floor=floor,
+                nearest_station=nearest_station,
+                nearest_station_distance=nearest_station_distance,
+                image_url=building_info.get('image_url'),
+                mode='rental',
+            )
+
+            return property_dict
+
+        except Exception as e:
+            logger.warning(f"Error parsing rental room: {e}")
+            return None
+
+    def _scrape_purchase_page(self, soup: BeautifulSoup, conditions: Dict) -> List[Dict]:
+        """
+        Parse purchase listings from page soup.
+
+        Args:
+            soup: BeautifulSoup object of purchase listings page
+            conditions: Search conditions
+
+        Returns:
+            List of purchase property dictionaries
+        """
+        listings = []
+
+        # Find property cards (typically class='property' or 'bukkencard')
+        card_elements = soup.find_all('div', class_=['bukkencard', 'property'])
+
+        for card_el in card_elements:
+            try:
+                property_data = self._parse_purchase_card(card_el)
+                if property_data:
+                    listings.append(property_data)
+            except Exception as e:
+                logger.warning(f"Error parsing purchase card: {e}")
+
+        return listings
+
+    def _parse_purchase_card(self, card_el) -> Optional[Dict]:
+        """
+        Parse purchase property card information.
+
+        Args:
+            card_el: BeautifulSoup element for property card
+
+        Returns:
+            Standardized property dictionary or None if parsing fails
+        """
+        try:
+            # Extract property name/title
+            title_el = card_el.find('a', class_='bukkenname')
+            if not title_el:
+                title_el = card_el.find('a')
+            title = title_el.get_text(strip=True) if title_el else None
+            url = title_el.get('href') if title_el else None
+
+            # Extract price (万円)
+            price_el = card_el.find('span', class_='price')
+            if not price_el:
+                price_el = card_el.find('span', class_='kakaku')
+            price_text = price_el.get_text(strip=True) if price_el else None
+            price = self._parse_price(price_text)
+
+            # Extract address
+            address_el = card_el.find('span', class_='address')
+            address = address_el.get_text(strip=True) if address_el else None
+
+            # Extract building area (建物面積)
+            building_area_el = card_el.find('span', class_='tatemonomenseki')
+            building_area_text = building_area_el.get_text(strip=True) if building_area_el else None
+            building_area = self._parse_area(building_area_text)
+
+            # Extract land area (土地面積)
+            land_area_el = card_el.find('span', class_='tochimenseki')
+            land_area_text = land_area_el.get_text(strip=True) if land_area_el else None
+            land_area = self._parse_area(land_area_text)
+
+            # Extract age (築年月日)
+            age_el = card_el.find('span', class_='age')
+            age = age_el.get_text(strip=True) if age_el else None
+
+            # Extract layout (間取り)
+            layout_el = card_el.find('span', class_='madori')
+            layout = layout_el.get_text(strip=True) if layout_el else None
+
+            # Extract nearest station
+            station_el = card_el.find('span', class_='station')
+            nearest_station = None
+            nearest_station_distance = None
+
+            if station_el:
+                station_text = station_el.get_text(strip=True)
+                parts = station_text.split()
+                if len(parts) >= 1:
+                    nearest_station = parts[0]
+                if len(parts) >= 2:
+                    nearest_station_distance = parts[1]
+
+            # Extract published date
+            published_date = None
+            date_el = card_el.find('span', class_='published_date')
+            if date_el:
+                published_date = date_el.get_text(strip=True)
+
+            # Extract next update date
+            next_update_date = None
+            update_el = card_el.find('span', class_='next_update_date')
+            if update_el:
+                next_update_date = update_el.get_text(strip=True)
+
+            # Extract city planning (都市計画)
+            city_planning = None
+            planning_el = card_el.find('span', class_='city_planning')
+            if planning_el:
+                city_planning = planning_el.get_text(strip=True)
+
+            # Extract zoning (用途地域)
+            zoning = None
+            zoning_el = card_el.find('span', class_='zoning')
+            if zoning_el:
+                zoning = zoning_el.get_text(strip=True)
+
+            # Extract land category (地目)
+            land_category = None
+            category_el = card_el.find('span', class_='land_category')
+            if category_el:
+                land_category = category_el.get_text(strip=True)
+
+            # Extract image URL
+            img_el = card_el.find('img')
+            image_url = img_el.get('src') if img_el else None
+
+            property_dict = self._make_property_dict(
+                url=url,
+                title=title,
+                address=address,
+                price=price,
+                price_unit='万円' if price else None,
+                layout=layout,
+                building_area_sqm=building_area,
+                land_area_sqm=land_area,
+                age=age,
+                nearest_station=nearest_station,
+                nearest_station_distance=nearest_station_distance,
+                image_url=image_url,
+                mode='purchase',
+                published_date=published_date,
+                next_update_date=next_update_date,
+                city_planning=city_planning,
+                zoning=zoning,
+                land_category=land_category,
+            )
+
+            return property_dict
+
+        except Exception as e:
+            logger.warning(f"Error parsing purchase card: {e}")
+            return None
+
+    def _parse_price(self, price_text: Optional[str]) -> Optional[float]:
+        """
+        Parse price from text (handle 万円 format).
+
+        Args:
+            price_text: Price text (e.g., "10万円", "1,500万円")
+
+        Returns:
+            Numeric price value or None
+        """
+        if not price_text:
+            return None
+
+        try:
+            # Remove 万円 and other non-numeric characters except decimal point
+            cleaned = price_text.replace('万円', '').replace(',', '').strip()
+            if cleaned:
+                return float(cleaned)
+        except ValueError:
+            logger.warning(f"Could not parse price: {price_text}")
+
+        return None
+
+    def _parse_area(self, area_text: Optional[str]) -> Optional[float]:
+        """
+        Parse area from text (handle m² format).
+
+        Args:
+            area_text: Area text (e.g., "50.5m²", "50.5㎡")
+
+        Returns:
+            Numeric area value or None
+        """
+        if not area_text:
+            return None
+
+        try:
+            # Remove m², ㎡ and other non-numeric characters except decimal point
+            cleaned = area_text.replace('m²', '').replace('㎡', '').replace(',', '').strip()
+            if cleaned:
+                return float(cleaned)
+        except ValueError:
+            logger.warning(f"Could not parse area: {area_text}")
+
+        return None
