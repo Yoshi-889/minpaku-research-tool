@@ -1,4 +1,4 @@
-北海道青森県岩手県宮城県秋田県山形県福島県茨城県栃木県群馬県埼玉県千葉県東京都神奈川県新潟県富山県石川県福井県山梨県長野県岐阜県静岡県愛知県三重県滋賀県京都府大阪府兵庫県奈良県和歌山県鳥取県島根県岡山県広島県山口県徳島県香川県愛媛県高知県福岡県佐賀県長崎県熊本県大分県宮崎県鹿児島県沖縄県北海道青森県岩手県宮城県秋田県山形県福島県茨城県栃木県群馬県埼玉県千葉県東京都神奈川県新潟県富山県石川県福井県山梨県長野県岐阜県静岡県愛知県三重県滋賀県京都府大阪府兵庫県奈良県和歌山県鳥取県島根県岡山県広島県山口県徳島県香川県愛媛県高知県福岡県佐賀県長崎県熊本県大分県宮崎県鹿児島県沖縄県アットホーム東京都都道府県市区町村郡分万円管理費等円円²㎡新築築年アットホーム万円"""AtHome scraper for rental properties."""
+"""AtHome scraper for rental properties."""
 import re
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -8,210 +8,130 @@ from .base_scraper import BaseScraper
 class AthomeScraper(BaseScraper):
     """Scraper for AtHome rental property listings."""
 
-    CITY_CODES = {
-        'é¿èå¸': '43214',
-        'çæ¬å¸ä¸­å¤®åº': '43101',
-        'çæ¬å¸æ±åº': '43102',
-        'åé¿èæ': '43432',
+    PREFECTURE_PATHS = {
+        '北海道': 'hokkaido', '青森県': 'aomori', '岩手県': 'iwate', '宮城県': 'miyagi',
+        '秋田県': 'akita', '山形県': 'yamagata', '福島県': 'fukushima', '茨城県': 'ibaraki',
+        '栃木県': 'tochigi', '群馬県': 'gunma', '埼玉県': 'saitama', '千葉県': 'chiba',
+        '東京都': 'tokyo', '神奈川県': 'kanagawa', '新潟県': 'niigata', '富e��県': 'toyama',
+        '石川県': 'ishikawa', '福井県': 'fukui', '山梨県': 'yamanashi', '長野県': 'nagano',
+        '岐阜県': 'gifu', '静岡県': 'shizuoka', '愛知県': 'aichi', '三重県': 'mie',
+        '滋賀県': 'shiga', '京都府': 'kyoto', '大阪府': 'osaka', '兵庫県': 'hyogo',
+        '奈良県': 'nara', '和歌山県': 'wakayama', '鳥取県': 'tottori', '島根県': 'shimane',
+        '岡山県': 'okayama', '広島県': 'hiroshima', '山口県': 'yamaguchi', '徳島県': 'tokushima',
+        '香川県': 'kagawa', '愛媛県': 'ehime', '高知県': 'kochi', '福岡県': 'fukuoka',
+        '佐賀県': 'saga', '長崎県': 'nagasaki', '熊本県': 'kumamoto', '大分県': 'oita',
+        '宮崎県': 'miyazaki', '鹿児島県': 'kagoshima', '沖縄県': 'okinawa',
+    }
+
+    PREFECTURE_CODES = {
+        '北海道': '01', '青森県': '02', '岩手県': '03', '宮城県': '04',
+        '秋田県': '05', '山形県': '06', '福島県': '07', '茨城県': '08',
+        '栃木県': '09', '群馬県': '10', '埼玉県': '11', '千葉県': '12',
+        '東京都': '13', '神奈川県': '14', '新潟県': '15', '富山県': '16',
+        '石川県': '17', '福井県': '18', '山梨県': '19', '長野県': '20',
+        '岐阜県': '21', '静岡県': '22', '愛知県': '23', '三重県': '24',
+        '滋賀県': '25', '京都府': '26', '大阪府': '27', '兵庫県': '28',
+        '奈良県': '29', '和歌山県': '30', '鳥取県': '31', '島根県': '32',
+        '岡山県': '33', '広島県': '34', '山口県': '35', '徳島県': '36',
+        '香川県': '37', '愛媛県': '38', '高知県': '39', '福岡県': '40',
+        '佐賀県': '41', '長崎県': '42', '熊本県': '43', '大分県': '44',
+        '宮崎県': '45', '鹿児島県': '46', '沖縄県': '47',
     }
 
     def __init__(self):
-        super().__init__('ã¢ãããã¼ã ')
+        super().__init__('アットホーム')
         self.base_url = 'https://www.athome.co.jp'
+�Y�؝Z[��X\���\�
+�[��ۙ][ۜΈX�Y�N�[�HJHO���������Z[]�YH�X\��T�������Y�X�\�HH�ۙ][ۜ˙�]
+	��Y�X�\�I�	��ly.�:`�I�B��]HH�ۙ][ۜ˙�]
+	��]I�	��B���Y��]H�[���Q�P�T�W�U˙�]
+�Y�X�\�K	���[��B��Y����HH�[���Q�P�T�W���T˙�]
+�Y�X�\�K	�L��B���\�H�Y�X�\�K[]�[�X\��T��\�H����[���\�W�\�K��[�ZK���Y��]K��\�[\�H�B�Y��ۙ][ۜ˙�]
+	ܙ[��Z[��N��\�[\����X�Q���I�HH��[�
+��]
+�ۙ][ۜ��ܙ[��Z[��JH
+�L
+JB�Y��ۙ][ۜ˙�]
+	ܙ[��X^	�N��\�[\����X�U��HH��[�
+��]
+�ۙ][ۜ��ܙ[��X^	�JH
+�L
+JB�Y��ۙ][ۜ˙�]
+	�\�XW�Z[��N��\�[\���\�XQ���I�HH���ۙ][ۜ���\�XW�Z[��JB���Y�]H�^]�ܙ�Y��]H[��]K���\
 
-    def _build_search_url(self, conditions: Dict, page: int = 1) -> str:
-        """Build AtHome search URL."""
-        city = conditions.get('city', 'é¿èå¸')
-        city_code = self.CITY_CODES.get(city, '43214')
+N��\�[\����^]�ܙ	�HH�]K���\
 
-        # AtHome uses a keyword-based search URL pattern
-        url = f'{self.base_url}/chintai/theme/list/'
+B��Y�Y�H�N��\�[\���Y�I�HH��Y�JB��Y�\�[\΂�\�[W���H	ɉ˚��[�����O^ݟI��܈��[�\�[\˚][\�
+JB�\�
+�H	���
+�\�[W������]\��\���Y��ܘ\J�[��ۙ][ۜΈX�
+HO�\��X�N������ܘ\H]�YH�[�[\�[��ˈ����[���\�Y\�H�B�X^�Y�\�H�ۙ][ۜ˙�]
+	�X^�Y�\���B���܈Y�H[��[��JKX^�Y�\�
+�JN��\�H�[��؝Z[��X\���\�
+�ۙ][ۜ�Y�JB���\H�[��ٙ]��Y�J\�
+B��Y���\\��ۙN����XZ���\�Y\�H�[���\��W�\�[���Y�J��\
+B�Y�����\�Y\΂��[�����\��[�������[ܙH��\�Y\���[�ۈY�H�Y�_H�B���XZ�[���\�Y\˙^[�
+��\�Y\�B��[�����\��[�������[��[���\�Y\�_H��\�Y\�ۈY�H�Y�_H�B���[�����\��[������[��\�Y\��ܘ\Y���H]�YN��[�[���\�Y\�_H�B��]\��[���\�Y\�Y��\��W�\�[���Y�J�[���\
+HO�\��X�N�����\��HH\�[��Y�H�܈��\�Y\ˈ������\�Y\�H�B���]�YH\�\��\�[�\��\��]\����܈��\�H�\��\��H��\��[X�
+	˜\��\�K���\�KY]K��\�ʏH��Z��[����ȗI�B�Y����\�΂��\��H��\��[X�
+	�\�X�K�Z][K�]K\��ZYI�B�Y����\�΂���H�\��H���HX�K[Z�H��X�\�B�X�\�H��\��[X�
+	�X�K��\�[[\�X�K��Z��[�]X�I�B��܈X�H[�X�\΂�����HX�K��[X�
+	���B��܈���[����΂���H�[���\��W�X�Wܛ�����B�Y�������\�Y\˘\[�
+��
+B��]\����\�Y\��܈�\�[��\�΂���H�[���\��W���\�W��\�
+�\�
+B�Y���[�����]
+	ܙ[�	�N����\�Y\˘\[�
+��
+B���]\����\�Y\�Y��\��W���\�W��\�
+�[��\�
+HO��[ۘ[�X�N�����\��HH�[��H��\�H�\�������N��^H�\���]�^
 
-        params = {
-            'areaCode': city_code,
-            'prefCode': '43',  # Kumamoto
-            'type': '9',  # Rental
-        }
+B����Z[[���[YB��Z[[��ۘ[YHH	��[YW�[H�\���[X��ۙJ	����\��\�K]]K��\�ʏH��[YH�I�B�Y��[YW�[���Z[[��ۘ[YHH�[YW�[��]�^
+��\U�YJB���Y�\�Y�\��H	�Y��[H�\���[X��ۙJ	���\�ʏH�Y�\�ȗK��\�ʏH�\�XH�I�B�Y�Y��[��Y�\��HY��[��]�^
+��\U�YJB�[�N��X]�H�K��X\��
+������`�z`d�n�9�#K����n �c.��.��dz`�WVח��J�I�^
+B�Y�X]���Y�\��HX]��ܛ�\
+JB����[��ܝ��[��ܝH	��[���[H�\���[X��ۙJ	���\�ʏH��Y��XȗK��\�ʏH�X��\�ȗI�B�Y��[���[���[��ܝH�[���[��]�^
+��\U�YJB�[�N��X]�H�K��X\��
+����ח�J�b!�I�^
+B�Y�X]����[��ܝHX]��ܛ�\
+JB����[���[�H�ۙB��[��X]�H�K��X\��
+����J�Wʹ.!�a���^
+B�Y��[��X]����[�H��]
+�[��X]��ܛ�\
+JJB���X[�Y�[Y[��YB�Y�]ٙYHH�ۙB�Y�]�X]�H�K��X\��
+���y�!�,����bWO�ʊ�J�Wʹa���^
+B�Y���Y�]�X]���Y�]�X]�H�K��X\��
+���ʊ�J�Wʹa���^
+B�Y�Y�]�X]���Y�]ٙYHH��]
+Y�]�X]��ܛ�\
+JK��\X�J	�	�	��JH�L���^[�]�^[�]H	�^[�]�X]�H�K��X\��
+�����^�K
+JI�^
+B�Y�^[�]�X]���^[�]H^[�]�X]��ܛ�\
+JB���\�XB�\�XHH�ۙB�\�XW�X]�H�K��X\��
+����J�WʛV��WI�^
+B�Y�\�XW�X]���\�XHH��]
+\�XW�X]��ܛ�\
+JJB���Y�B�Y�W�^H	�Y�W�X]�H�K��X\��
+��9��9��_9��W
+�nm
+I�^
+B�Y�Y�W�X]���Y�W�^HY�W�X]��ܛ�\
+JB���T��\�H	�[��H�\���[X��ۙJ	�V��Y��H���[�ZKȗI�B�Y�[�΂��Y�H[�˙�]
+	��Y��	��B�Y��Y���\���]
+	���N��\�H�[���\�W�\�
+��Y��[Y��Y���\���]
+	�	�N��\�H�Y����]\��	��]IΈ	�ਸ�����8�����8��	��	؝Z[[��ۘ[YIΈ�Z[[��ۘ[YK�	�Y�\��ΈY�\���	��[��ܝ	Έ�[��ܝ�	ܙ[�	Έ�[��	�X[�Y�[Y[�ٙYIΈY�]ٙYK�	�\��]	Έ	���	��^W�[ۙ^IΈ	���	�^[�]	Έ^[�]�	�\�XIΈ\�XK�	�Y�IΈ�[���\��W�Y�JY�W�^
+K�	�Y�W�^	ΈY�W�^�	ٛ�܉Έ	���	��[��Z[�]\�Έ�[���\��W��[��Z[�]\��[��ܝ
+H܈�[���\��W��[��Z[�]\�^
+K�	�\�	Έ\��	��ܘ\Y�]	Έ]][YK����
+K�\�ٛܛX]
 
-        if conditions.get('rent_min'):
-            params['priceFrom'] = str(int(float(conditions['rent_min']) * 10000))
-        if conditions.get('rent_max'):
-            params['priceTo'] = str(int(float(conditions['rent_max']) * 10000))
-        if conditions.get('area_min'):
-            params['areaFrom'] = str(conditions['area_min'])
+K�B�^�\^�\[ۈ\�N���[�����\��\��܊��\��܈\��[����\�H�\���_H�B��]\���ۙB��Y��\��W�X�Wܛ���[����HO��[ۘ[�X�N�����\��HHX�H����ܛX]��\�K������N��^H��˙�]�^
 
-        if page > 1:
-            params['page'] = str(page)
-
-        param_str = '&'.join(f'{k}={v}' for k, v in params.items())
-        return f'{url}?{param_str}'
-
-    def scrape(self, conditions: Dict) -> List[Dict]:
-        """Scrape AtHome rental listings."""
-        all_properties = []
-        page = 1
-        max_pages = conditions.get('max_pages', 3)
-
-        # Try direct area search first
-        city = conditions.get('city', 'é¿èå¸')
-        # AtHome URL patterns can vary; try multiple patterns
-        urls_to_try = [
-            f'{self.base_url}/chintai/kumamoto/aso-city/list/',
-            f'{self.base_url}/chintai/kumamoto/aso-shi/list/',
-        ]
-
-        for base_search_url in urls_to_try:
-            soup = self._fetch_page(base_search_url)
-            if soup and 'è¦ã¤ããã¾ãã' not in soup.get_text():
-                self.logger.info(f"Found working URL: {base_search_url}")
-                properties = self._parse_listing_page(soup)
-                all_properties.extend(properties)
-
-                # Paginate
-                for pg in range(2, max_pages + 1):
-                    next_url = f"{base_search_url}?page={pg}"
-                    soup = self._fetch_page(next_url)
-                    if soup and 'è¦ã¤ããã¾ãã' not in soup.get_text():
-                        props = self._parse_listing_page(soup)
-                        if not props:
-                            break
-                        all_properties.extend(props)
-                    else:
-                        break
-                break
-
-        self.logger.info(f"Total properties scraped from AtHome: {len(all_properties)}")
-        return all_properties
-
-    def _parse_listing_page(self, soup) -> List[Dict]:
-        """Parse a listing page for properties."""
-        properties = []
-
-        # AtHome uses various class patterns for property cards
-        cards = soup.select('.p-property, .property-data, [class*="bukkenBlock"]')
-        if not cards:
-            cards = soup.select('article, .p-item, [data-prop-id]')
-        if not cards:
-            # Try to parse from table-like structure
-            tables = soup.select('table.result-list, table.bukken-table')
-            for table in tables:
-                rows = table.select('tr')
-                for row in rows:
-                    prop = self._parse_table_row(row)
-                    if prop:
-                        properties.append(prop)
-            return properties
-
-        for card in cards:
-            prop = self._parse_property_card(card)
-            if prop and prop.get('rent'):
-                properties.append(prop)
-
-        return properties
-
-    def _parse_property_card(self, card) -> Optional[Dict]:
-        """Parse a single property card."""
-        try:
-            text = card.get_text()
-
-            # Building name
-            building_name = ''
-            name_el = card.select_one('h2, h3, .p-property-title, [class*="name"]')
-            if name_el:
-                building_name = name_el.get_text(strip=True)
-
-            # Address
-            address = ''
-            addr_el = card.select_one('[class*="address"], [class*="area"]')
-            if addr_el:
-                address = addr_el.get_text(strip=True)
-            else:
-                match = re.search(r'(çæ¬ç[^\s\n]+)', text)
-                if match:
-                    address = match.group(1)
-
-            # Transport
-            transport = ''
-            trans_el = card.select_one('[class*="traffic"], [class*="access"]')
-            if trans_el:
-                transport = trans_el.get_text(strip=True)
-            else:
-                match = re.search(r'(JR[^\n]+å)', text)
-                if match:
-                    transport = match.group(1)
-
-            # Rent
-            rent = None
-            rent_match = re.search(r'([\d.]+)\s*ä¸å', text)
-            if rent_match:
-                rent = float(rent_match.group(1))
-
-            # Management fee
-            mgmt_fee = None
-            mgmt_match = re.search(r'ç®¡çè²»[ç­]?\s*([\d,]+)\s*å', text)
-            if not mgmt_match:
-                mgmt_match = re.search(r'/\s*([\d,]+)\s*å', text)
-            if mgmt_match:
-                mgmt_fee = float(mgmt_match.group(1).replace(',', '')) / 10000
-
-            # Layout
-            layout = ''
-            layout_match = re.search(r'(\d[LDKS]{1,4})', text)
-            if layout_match:
-                layout = layout_match.group(1)
-
-            # Area
-            area = None
-            area_match = re.search(r'([\d.]+)\s*m[Â²ã¡]', text)
-            if area_match:
-                area = float(area_match.group(1))
-
-            # Age
-            age_text = ''
-            age_match = re.search(r'(æ°ç¯|ç¯\d+å¹´)', text)
-            if age_match:
-                age_text = age_match.group(1)
-
-            # URL
-            url = ''
-            link = card.select_one('a[href*="/chintai/"]')
-            if link:
-                href = link.get('href', '')
-                if href.startswith('/'):
-                    url = self.base_url + href
-                elif href.startswith('http'):
-                    url = href
-
-            return {
-                'site': 'ã¢ãããã¼ã ',
-                'building_name': building_name,
-                'address': address,
-                'transport': transport,
-                'rent': rent,
-                'management_fee': mgmt_fee,
-                'deposit': '',
-                'key_money': '',
-                'layout': layout,
-                'area': area,
-                'age': self._parse_age(age_text),
-                'age_text': age_text,
-                'floor': '',
-                'walk_minutes': self._parse_walk_minutes(transport) or self._parse_walk_minutes(text),
-                'url': url,
-                'scraped_at': datetime.now().isoformat(),
-            }
-        except Exception as e:
-            self.logger.error(f"Error parsing property card: {e}")
-            return None
-
-    def _parse_table_row(self, row) -> Optional[Dict]:
-        """Parse a table row format property."""
-        try:
-            text = row.get_text()
-            rent_match = re.search(r'([\d.]+)\s*ä¸å', text)
-            if not rent_match:
-                return None
-
-            return self._parse_property_card(row)
-        except Exception:
-            return None
+B��[��X]�H�K��X\��
+����J�Wʹ.!�a���^
+B�Y����[��X]����]\���ۙB���]\���[���\��W���\�W��\�
+���B�^�\^�\[ێ���]\���ۙB
