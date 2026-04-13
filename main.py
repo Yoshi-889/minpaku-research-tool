@@ -128,6 +128,12 @@ with st.sidebar:
     city = st.text_input("市区町村", value='阿蘇市')
 
     st.header("💰 条件フィルター")
+    # Initialize defaults for both modes
+    price_min = 0.0
+    price_max = 50000.0
+    rent_min = 0.0
+    rent_max = 20.0
+
     col1, col2 = st.columns(2)
     with col1:
         if search_mode == "購入":
