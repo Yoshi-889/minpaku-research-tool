@@ -68,7 +68,7 @@ st.markdown("""
 
 # ========================================
 # Constants
-# =======================================
+# ========================================
 APP_PASSWORD = "jh87*(U)(UOJHu7y98u0iOP"
 RYOKAN_YOTO_CHIIKI = ['商業地域', '近隣商業地域', '準工業地域', '準住居地域']
 
@@ -94,7 +94,7 @@ def check_password():
         return True
 
     def password_entered():
-       ` if st.session_state["password"] == APP_PASSWORD:
+        if st.session_state["password"] == APP_PASSWORD:
             st.session_state["authenticated"] = True
             del st.session_state["password"]
         else:
@@ -130,7 +130,7 @@ with st.sidebar:
         '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
         '岐阜県', '静岡県', '愛知県', '三重県',
         '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
-        '鳥取県', '島根県', '岡山県', '布島県', '山口県',
+        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
         '徳島県', '香川県', '愛媛県', '高知県',
         '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
     ]
@@ -235,9 +235,9 @@ with st.sidebar:
     daily_rate = st.number_input("想定宿泊単価 (円/泊)", min_value=1000, value=8000, step=500)
     occupancy_rate = st.slider("想定稼働率 (%)", 10, 90, 45) / 100
     setup_cost = st.number_input("初期セットアップ費用 (円)", min_value=0, value=500000, step=50000)
-    monthly_utilities = st.number_input("月額光熱費 (円)", min_value=0, value=15000, step=1000)
+    monthly_utilities = st.number_input("月額先熱費 (円)", min_value=0, value=15000, step=1000)
     management_rate = st.slider("管理費率 (%)", 0, 50, 20) / 100
-    is_365_days = st.radio("営業形態", ['旅館業法（365日）', '民泊新法（180日）']) == '旅館業法（365日）'
+    is_365_days = st.radio("営業形態", ['旅館業法（365日）', '民泊新法（180日）']) == '旅館業法（36557�）'
 
 
 # ========================================
@@ -432,7 +432,7 @@ with tab1:
             except Exception as e:
                 status_text.text(f"❌ {company['name']}: エラー - {str(e)[:100]}")
 
-        progress_bar.progress(1.0, text="データ統合・重複排除仭...")
+        progress_bar.progress(1.0, text="データ統合・重複排除中...")
 
         # Merge and dedup
         if all_results:
@@ -546,54 +546,6 @@ with tab1:
                 'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
                 'city_planning': st.column_config.TextColumn('都市計画', width='small'),
                 'zoning': st.column_config.TextColumn('用途地域', width='small'),
-                'land_category': st.column_config.TextColumn('地目', width='sm"
-            )
-            ascending = sort_col == 'price'
-        else:
-            sort_col = st.selectbox(
-                "並び替え",
-                ['minpaku_score', 'rent', 'area', 'roi_percent', 'net_monthly_profit'],
-                format_func=lambda x: {
-                    'minpaku_score': '民泊スコア（高い順）',
-                    'rent': '賃料（安い順）',
-                    'area': '面積（広い順）',
-                    'roi_percent': 'ROI（高い順）',
-                    'net_monthly_profit': '月間利益（高い順）',
-                }.get(x, x),
-                key="rental_sort"
-            )
-            ascending = sort_col == 'rent'
-
-        display_df = df.sort_values(sort_col, ascending=ascending, na_position='last') if sort_col in df.columns else df
-
-        # Display columns based on search mode
-        if search_mode == "購入":
-            display_cols = [
-                'minpaku_grade', 'minpaku_score', 'site', 'building_name', 'address',
-                'price', 'layout', 'area', 'age', 'building_year',
-                'estimated_daily_rate', 'monthly_income', 'capitalization_rate',
-                'published_date', 'nearest_school_distance',
-                'city_planning', 'zoning', 'land_category',
-                'transport', 'url',
-            ]
-            col_config = {
-                'minpaku_grade': st.column_config.TextColumn('グレード', width='small'),
-                'minpaku_score': st.column_config.ProgressColumn('民泊スコア', min_value=0, max_value=100),
-                'site': st.column_config.TextColumn('サイト', width='small'),
-                'building_name': st.column_config.TextColumn('物件名'),
-                'address': st.column_config.TextColumn('住所'),
-                'price': st.column_config.NumberColumn('価格(万円)', format="%.0f万円"),
-                'layout': st.column_config.TextColumn('間取り', width='small'),
-                'area': st.column_config.NumberColumn('面積(㎡)', format="%.1f㎡"),
-                'age': st.column_config.NumberColumn('築年数', format="%d年"),
-                'building_year': st.column_config.NumberColumn('建築年', format="%d"),
-                'estimated_daily_rate': st.column_config.NumberColumn('想定単価(円/泊)', format="¥%,.0f"),
-                'monthly_income': st.column_config.NumberColumn('月間収入(円)', format="¥%,.0f"),
-                'capitalization_rate': st.column_config.NumberColumn('表面利回り', format="%.1f%%"),
-                'published_date': st.column_config.TextColumn('公開日'),
-                'nearest_school_distance': st.column_config.NumberColumn('学校距離(m)', format="%.0fm"),
-                'city_planning': st.column_config.TextColumn('都市計画', width='small'),
-                'zoning': st.column_config.TextColumn('用途地域', width='small'),
                 'land_category': st.column_config.TextColumn('地目', width='small'),
                 'transport': st.column_config.TextColumn('交通'),
                 'url': st.column_config.LinkColumn('リンク', width='small'),
@@ -642,8 +594,8 @@ with tab1:
 
         # URL-based property evaluation section
         st.divider()
-        st.subheader("🔷 URL指定による物件評価")
-        st.caption("特定の物件URLを入力して、民泊適性を自動h��価します")
+        st.subheader("🔗 URL指定による物件評価")
+        st.caption("特定の物件URLを入力して、民泊適性を自動評価します")
 
         eval_url = st.text_input(
             "物件URL",
@@ -703,7 +655,7 @@ with tab1:
 
                         with col_right:
                             if result['risks']:
-                                st.subheader("⚠️ 懵念点・リスク")
+                                st.subheader("⚠️ 懵忕点・リスク")
                                 for r in result['risks']:
                                     st.warning(r)
 
@@ -739,7 +691,7 @@ with tab2:
             st.metric("総物件数", f"{stats.get('total_properties', 0)} 件")
         with col2:
             if 'rent_avg' in stats:
-                st.metric("平均賃料", f"{stats.get('rent_avg', 0):.1f} 万円")
+                st.metric("平均賂料", f"{stats.get('rent_avg', 0):.1f} 万円")
             else:
                 st.metric("平均価格", f"{stats.get('price_avg', 0):.0f} 万円")
         with col3:
@@ -925,15 +877,15 @@ with st.expander("📐 各数値の算出根拠", expanded=False):
     st.markdown("""
 ### 月間売上計算
 ```
-月間売上 = 宿泈単価 × 稼働率 × (365日 or 180日) ÷ 12ヶ月
+月間売上 = 宿泊単価 × 稼僎率 × (365日 or 180日) ÷ 12ヶ月
 ```
-宿泈単価と稼働率から、1年間の売上を月単位で換算します。旅館業法（365日営業）または民泊新法（180日営業）の営業日数を使用します。
+宿泊単価と稼僎率から、1年間の売上を月単位で換算します。旅館業法（365日営業）または民泊新法（180日営業）の営業日数を使用します。
 
 ---
 
 ### 月間コスト計算
 ```
-月間コスト = 賃料 + 管理費 + 光熱費
+月間コスト = 賃料 + 管理費 + 先熱費
 ```
 物件の維持にかかる固定コストの月額合計です。
 
@@ -975,11 +927,88 @@ ROI (%) = 年間利益 ÷ (年間固定費 + 初期費用) × 100
 民泊スコアは以下の要素を総合的に評価しています：
 
 - **利益性 (30%)**: 月間利益が高いほど加点
-- **面積 (20%)**: 30㎡～80㎡程度が最適（広すぎても狭すぎても減点）
+- **面積 (20%)**: 30㎡～80㎡程度が最適（布すぎても狭すぎても減点）
 - **間取り (15%)**: 1K～2LDK程度が最適（特にワンルーム～1LDKが有利）
 - **築年数 (20%)**: 新築～築15年程度が加点
 - **,賃料効以 (15%)**: 面積あたりの賃料が適切な範囲内で加点
 
 スコアは0～100の範囲で、以下の等級に対応します：
 - **S (90以上)**: 民泊運奶に非常に適した物件
-- **A (75以上)*
+- **A (75以上)**: 民泈運奶正適した物件
+- **B (60以上)**: 民泈運奶正利用可能な物件
+- **C (45以上)**: 民泈運奶正は工夫が必要な物件
+- **D (未満)**: 民沊不向きな物件
+
+---
+
+### 個別物件評価（5つの評価軸）
+
+#### 1. 耐震基準
+- **S級**: 1981年６月以降の新耐震呹準対応
+- **A級**: 1970年～1981年６月（やや古いが通常利用可能）
+- **B級**: 1960年～1970年（耐震襺宋・補強検討が必要）
+- **C級**: 1960年以前（耐震詤強が強く推奨）
+- **D｜**: 不明（診斄が必須）
+
+#### 2. 用途地域
+用途地域は、槯魨業懳法による営皔に뀁珯します：
+- **適合地域**: 商皔地域、か卄隉商皔地域、く工皔地域、く住居地域
+- **要確認地域**: その他の地域（自治体の許認可が必要な場合あり）
+- **非適合地域**: 住宅地、自居地域、工皔専用地域
+
+#### 3. 市街化区域
+- 市街化区域: インフラが整備された利便性の高い地域（加点）
+- 市街化調整区域: 開発が制限された地域（減点）
+
+#### 4. 周辺施設
+- 最寄り学校･保育園㝥公園までの距離が短いほど加点
+- 特に学校までの距離500m以内で利便性が高い
+
+#### 5. 建物妇懃・消防設備
+- 建物規模: 30～150㎡程度が最適
+- 消防設備の有無: 大規模表件や旅館業敷業断場合、泗沆設战の整備が法的要件
+
+---
+
+### 購入物件用の利回り計算
+
+#### 表面利回り（Gross Yield）
+```
+表面利回り (%) = 年間売上 ÷ 物件価格 × 100
+```
+物件価格に対する年間売上の割合です。环純な利回りを示しますが、コストを考慮していません。
+
+#### 実質利回り（Net Yield）
+```
+実質利回り (%) = (年間売上 - 年間経費) ÷ (物件価格 + 初期費用) × 100
+```
+実際のコストを差し引いた真の利回りです。投資判断の際の参考指標として使用します。
+
+---
+
+### データ出典
+
+本ツールで使用しているデータは以下のサイトから取得しています：
+- SUUMO: https://suumo.jp/
+- LIFULL HOME'S: https://homes.co.jp/
+- アットホーム: https://www.athome.co.jp/
+
+---
+
+### 免責事項
+
+このツールで表示される計算結果は、入力データに基づいた推定値です。
+実際の民泊営業には多くの追加要件（消防設備、建築基準、自治体条例など）が存在します。
+物件選定・投資判断の際には、必ず専門家への相請をお勧めします。
+""")
+
+
+# ========================================
+# Footer
+# ========================================
+st.divider()
+st.caption(
+    "⚠️ このツールは個人利用・学習目的に限定されます。"
+    "商用化や大規模利用を行う場合は、各サイトの公式APIへの移行を検討してください。"
+    f" | 最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+)
